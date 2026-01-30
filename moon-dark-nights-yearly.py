@@ -15,6 +15,7 @@ LATITUDE = 44.8
 LONGITUDE = -66.96
 TIMEZONE = -4  # US Eastern Daylight Time (UTC-4)
 CUTOFF_HOUR = 1  # Moon must be below horizon until at least 1 AM
+MAX_MOONSET_DELAY = 90  # Maximum minutes after sunset that moonset can occur
 YEAR = 2026
 MONTHS_TO_CHECK = [6, 7, 8, 9]  # June through September
 
@@ -172,7 +173,7 @@ def parse_time(time_str):
     return hours * 60 + minutes
 
 
-def check_moon_below_horizon(date, sun_data, moon_data, cutoff_hour):
+def check_moon_below_horizon(date, sun_data, moon_data, cutoff_hour, max_moonset_delay):
     """
     Check if moon is below horizon from sunset until cutoff hour.
 
@@ -181,6 +182,7 @@ def check_moon_below_horizon(date, sun_data, moon_data, cutoff_hour):
         sun_data: Dictionary of sun rise/set times
         moon_data: Dictionary of moon rise/set times
         cutoff_hour: Hour (in 24-hour format) that moon must stay below horizon until
+        max_moonset_delay: Maximum minutes after sunset that moonset can occur
 
     Returns:
         Tuple of (bool, dict): (True if moon is below horizon from sunset until cutoff hour,
@@ -218,51 +220,75 @@ def check_moon_below_horizon(date, sun_data, moon_data, cutoff_hour):
         'moonrise_tomorrow': moonrise_tomorrow or 'N/A'
     }
 
-    # Case 1: Moon has already set before sunset
-    if moonset_today:
-        moonset_today_mins = parse_time(moonset_today)
-        if moonset_today_mins < sunset_mins:
-            # Moon set before sunset - check when it rises next
-            # First check if it rises later today after sunset
-            if moonrise_today:
-                moonrise_today_mins = parse_time(moonrise_today)
-                if moonrise_today_mins > sunset_mins:
-                    # Moon rises in the evening (after sunset on same day) - will be visible
-                    return False, times
+    # Determine if moon is up at sunset
+    moon_up_at_sunset = False
 
-            # Check if moon rises tomorrow morning before cutoff
-            if moonrise_tomorrow:
-                moonrise_tomorrow_mins = parse_time(moonrise_tomorrow)
-                if moonrise_tomorrow_mins < cutoff_mins:
-                    return False, times  # Moon rises before cutoff
+    # Case 1: Moon rises today before sunset
+    if moonrise_today:
+        moonrise_today_mins = parse_time(moonrise_today)
+        if moonrise_today_mins < sunset_mins:
+            # Check if it already set before sunset
+            if moonset_today:
+                moonset_today_mins = parse_time(moonset_today)
+                if moonset_today_mins > moonrise_today_mins and moonset_today_mins < sunset_mins:
+                    # Moon rose and set before sunset - moon is down at sunset
+                    moon_up_at_sunset = False
+                else:
+                    # Moon rose but hasn't set by sunset - moon is up at sunset
+                    moon_up_at_sunset = True
+            else:
+                # Moon rose but no moonset today - moon is up at sunset
+                moon_up_at_sunset = True
+        elif moonrise_today_mins > sunset_mins:
+            # Moon rises after sunset same day - will be visible in evening
+            return False, times
 
-            return True, times  # Moon stays down until at least cutoff hour
-
-    # Case 2: Moon is up at sunset - check when it sets
-    # Check if moon sets today after sunset
-    if moonset_today:
+    # Case 2: Moon rose yesterday and hasn't set yet
+    if not moonrise_today and not moonset_today:
+        # No rise or set today - likely moon is up all day
+        moon_up_at_sunset = True
+    elif not moonrise_today and moonset_today:
         moonset_today_mins = parse_time(moonset_today)
         if moonset_today_mins > sunset_mins:
-            # Moon sets tonight - check if it rises again before cutoff
-            if moonrise_tomorrow:
-                moonrise_tomorrow_mins = parse_time(moonrise_tomorrow)
-                if moonrise_tomorrow_mins < cutoff_mins:
-                    return False, times
-            return True, times
+            # Moon is up at sunset and sets later tonight
+            moon_up_at_sunset = True
 
-    # Check if moon sets tomorrow morning before cutoff
-    moonset_tomorrow = moon_tomorrow.get('set')
-    if moonset_tomorrow:
-        moonset_tomorrow_mins = parse_time(moonset_tomorrow)
-        if moonset_tomorrow_mins < cutoff_mins:
-            # Check if moon rises again before cutoff
-            if moonrise_tomorrow:
-                moonrise_tomorrow_mins = parse_time(moonrise_tomorrow)
-                if moonrise_tomorrow_mins < cutoff_mins:
-                    return False, times
-            return True, times
+    # If moon is up at sunset, check when it sets
+    if moon_up_at_sunset:
+        # Look for moonset after sunset
+        moonset_after_sunset_mins = None
 
-    return False, times
+        if moonset_today:
+            moonset_today_mins = parse_time(moonset_today)
+            if moonset_today_mins > sunset_mins:
+                moonset_after_sunset_mins = moonset_today_mins
+
+        if moonset_after_sunset_mins is None:
+            # Moon doesn't set today, check tomorrow
+            moonset_tomorrow = moon_tomorrow.get('set')
+            if moonset_tomorrow:
+                moonset_tomorrow_mins = parse_time(moonset_tomorrow)
+                # Tomorrow's moonset in context of tonight (add 24 hours)
+                moonset_after_sunset_mins = moonset_tomorrow_mins + 1440  # 24*60
+
+        if moonset_after_sunset_mins:
+            moonset_delay = moonset_after_sunset_mins - sunset_mins
+            if moonset_delay > max_moonset_delay:
+                # Moon sets too long after sunset
+                return False, times
+        else:
+            # Can't find when moon sets - exclude
+            return False, times
+
+    # Check if moon rises tomorrow before cutoff
+    if moonrise_tomorrow:
+        moonrise_tomorrow_mins = parse_time(moonrise_tomorrow)
+        if moonrise_tomorrow_mins < cutoff_mins:
+            # Moon rises before 1am next day
+            return False, times
+
+    # If we get here, moon is down at sunset (or sets within 90 min) and doesn't rise before 1am
+    return True, times
 
 
 def main():
@@ -290,6 +316,7 @@ def main():
     moon_data = parse_year_table(moon_table)
 
     print(f"\nSearching for nights when moon is below horizon from sunset until {CUTOFF_HOUR}:00 AM")
+    print(f"Moon must set within {MAX_MOONSET_DELAY} minutes of sunset")
     print()
 
     qualifying_dates = {month: [] for month in MONTHS_TO_CHECK}
@@ -310,7 +337,7 @@ def main():
         for day in range(1, days_in_month + 1):
             date = datetime(YEAR, month, day).date()
 
-            qualifies, times = check_moon_below_horizon(date, sun_data, moon_data, CUTOFF_HOUR)
+            qualifies, times = check_moon_below_horizon(date, sun_data, moon_data, CUTOFF_HOUR, MAX_MOONSET_DELAY)
 
             # Display information for all dates
             status = "✓" if qualifies else "✗"
