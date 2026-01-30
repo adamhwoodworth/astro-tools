@@ -1,13 +1,16 @@
-# Moon Dark Nights
+# Astro Tools
+
+A collection of tools for astrophotography and night sky observation planning.
+
+## Tools
+
+### Moon Dark Nights (`moon-dark-nights.py`)
 
 Calculate optimal nights for astrophotography by finding dates when the moon is below the horizon from sunset until late evening.
 
-## Purpose
-
 For astrophotography and night sky observation, moonlight can wash out faint stars, nebulae, and the Milky Way. This tool identifies nights when the moon stays below the horizon from sunset until at least 1 AM, providing ideal dark sky conditions for photography.
 
-## Features
-
+**Features:**
 - Calculates moon visibility for any location and date range
 - Uses accurate astronomical data from the US Naval Observatory
 - Shows verbose output with sunset, moonset, and moonrise times for every night
@@ -111,13 +114,16 @@ Astronomical data provided by the [US Naval Observatory API](https://aa.usno.nav
 - Times adjusted for specified timezone
 - 100ms delay between requests to respect rate limits
 
-## Use Cases
-
+**Use Cases:**
 - Planning astrophotography sessions for Milky Way imaging
 - Scheduling deep sky object photography (galaxies, nebulae)
 - Finding optimal nights for meteor shower observation
 - Planning dark sky camping trips
 - Coordinating with new moon periods for maximum darkness
+
+## Contributing
+
+Additional astrophotography and observation planning tools are welcome. Each tool should be self-contained and well-documented.
 
 ## License
 

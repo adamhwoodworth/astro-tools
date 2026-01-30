@@ -1,19 +1,26 @@
-# Moon Dark Nights Project
+# Astro Tools Project
 
 ## Project Overview
-Python script to calculate dates when the moon is below the horizon from sunset until at least 1 AM, useful for astrophotography planning.
+Collection of Python tools for astrophotography and night sky observation planning.
 
-## Running the Script
+## Tools
+
+### moon-dark-nights.py
+Calculates dates when the moon is below the horizon from sunset until at least 1 AM, useful for astrophotography planning.
+
+## Running Tools
 
 ### Always use uv run
 ```bash
-uv run moon-dark-nights.py
+uv run python -u moon-dark-nights.py
 ```
 
 **Important**:
 - Always use `uv run` to execute Python commands
+- Use `-u` flag for unbuffered output to see real-time results (scripts may make API calls with delays)
+- Without `-u`, output will be buffered and appear delayed
 
-## Configuration
+## Moon Dark Nights Configuration
 
 ### Location Settings
 Located in `moon-dark-nights.py`:
