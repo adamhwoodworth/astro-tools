@@ -63,9 +63,11 @@ def fetch_yearly_table(task, year, no_cache=False):
 
     # Check cache if not disabled
     if not no_cache and cache_file.exists():
+        print("  Using cached data")
         return cache_file.read_text()
 
     # Fetch from USNO
+    print("  Downloading from USNO...")
     try:
         response = requests.get(url, timeout=30)
         response.raise_for_status()
@@ -75,6 +77,7 @@ def fetch_yearly_table(task, year, no_cache=False):
         if not no_cache:
             CACHE_DIR.mkdir(exist_ok=True)
             cache_file.write_text(data)
+            print("  Saved to cache")
 
         return data
     except Exception as e:

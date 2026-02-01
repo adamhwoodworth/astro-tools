@@ -8,6 +8,13 @@ FIXTURES_DIR = Path(__file__).parent / 'fixtures'
 CACHE_DIR = Path('cache')
 
 
+def normalize_output(output):
+    """Remove cache status lines from output for comparison."""
+    lines = output.split('\n')
+    filtered = [line for line in lines if not line.strip().startswith(('Using cached data', 'Downloading from USNO', 'Saved to cache'))]
+    return '\n'.join(filtered)
+
+
 @pytest.fixture(scope='session', autouse=True)
 def cleanup_cache():
     """Remove all cache files before any tests run."""
@@ -26,8 +33,13 @@ def test_darknights_2026_jun_no_cache():
     )
     assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
 
+    # Verify cache status messages
+    assert '  Downloading from USNO...' in result.stdout
+    assert 'Saved to cache' not in result.stdout  # --no-cache shouldn't save
+
+    # Verify output matches expected (ignoring cache status lines)
     expected = (FIXTURES_DIR / 'expected_output_2026_jun.txt').read_text()
-    assert result.stdout == expected
+    assert normalize_output(result.stdout) == normalize_output(expected)
 
 
 def test_darknights_2026_jun_with_cache():
@@ -40,8 +52,13 @@ def test_darknights_2026_jun_with_cache():
     )
     assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
 
+    # Verify cache status messages
+    assert '  Downloading from USNO...' in result.stdout
+    assert '  Saved to cache' in result.stdout
+
+    # Verify output matches expected (ignoring cache status lines)
     expected = (FIXTURES_DIR / 'expected_output_2026_jun.txt').read_text()
-    assert result.stdout == expected
+    assert normalize_output(result.stdout) == normalize_output(expected)
 
     # Verify cache files were created
     assert CACHE_DIR.exists(), "Cache directory should exist"
@@ -59,8 +76,13 @@ def test_darknights_2026_jun_with_cache_reuse():
     )
     assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
 
+    # Verify cache status messages
+    assert '  Using cached data' in result.stdout
+    assert 'Downloading from USNO' not in result.stdout
+
+    # Verify output matches expected (ignoring cache status lines)
     expected = (FIXTURES_DIR / 'expected_output_2026_jun.txt').read_text()
-    assert result.stdout == expected
+    assert normalize_output(result.stdout) == normalize_output(expected)
 
 
 def test_darknights_2026_jun_no_cache_again():
@@ -73,5 +95,10 @@ def test_darknights_2026_jun_no_cache_again():
     )
     assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
 
+    # Verify cache status messages
+    assert '  Downloading from USNO...' in result.stdout
+    assert 'Using cached data' not in result.stdout  # --no-cache should bypass cache
+
+    # Verify output matches expected (ignoring cache status lines)
     expected = (FIXTURES_DIR / 'expected_output_2026_jun.txt').read_text()
-    assert result.stdout == expected
+    assert normalize_output(result.stdout) == normalize_output(expected)
