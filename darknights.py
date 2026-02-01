@@ -275,10 +275,16 @@ def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_
 
 def parse_args():
     """Parse and validate command line arguments."""
+    # Check for --no-color flag
+    no_color = '--no-color' in sys.argv
+    if no_color:
+        sys.argv.remove('--no-color')
+
     if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <year> <month>", file=sys.stderr)
-        print("  year:  4-digit year (e.g., 2026)", file=sys.stderr)
-        print("  month: 3-letter lowercase abbreviation (e.g., jun)", file=sys.stderr)
+        print(f"Usage: {sys.argv[0]} <year> <month> [--no-color]", file=sys.stderr)
+        print("  year:     4-digit year (e.g., 2026)", file=sys.stderr)
+        print("  month:    3-letter lowercase abbreviation (e.g., jun)", file=sys.stderr)
+        print("  --no-color: disable ANSI color codes in output", file=sys.stderr)
         sys.exit(1)
 
     year_str = sys.argv[1]
@@ -297,12 +303,23 @@ def parse_args():
         sys.exit(1)
     month = MONTH_ABBREVS[month_str]
 
-    return year, month
+    return year, month, no_color
 
 
 def main():
     """Fetch and display astronomical data for the configured month."""
-    year, month = parse_args()
+    year, month, no_color = parse_args()
+
+    # Set color codes based on --no-color flag
+    if no_color:
+        reset = bg_dark = bg_light = header_bg = header_fg = text_fg = ""
+    else:
+        reset = RESET
+        bg_dark = BG_DARK_BLUE
+        bg_light = BG_LIGHT_BLUE
+        header_bg = HEADER_BG
+        header_fg = HEADER_FG
+        text_fg = TEXT_FG
 
     print(f"Fetching astronomical data for {year}...")
     print(f"Location: {LATITUDE}°N, {LONGITUDE}°W")
@@ -413,16 +430,16 @@ def main():
     max_width = max(len(line) for line in lines)
 
     # Print header with color
-    print(f"{HEADER_BG}{HEADER_FG}{lines[0]:<{max_width}}{RESET}")
-    print(f"{HEADER_BG}{HEADER_FG}{lines[1]:<{max_width}}{RESET}")
+    print(f"{header_bg}{header_fg}{lines[0]:<{max_width}}{reset}")
+    print(f"{header_bg}{header_fg}{lines[1]:<{max_width}}{reset}")
 
     # Print data rows with alternating colors
     for i, line in enumerate(lines[2:]):
         padded_line = f"{line:<{max_width}}"
         if i % 2 == 0:
-            print(f"{BG_DARK_BLUE}{TEXT_FG}{padded_line}{RESET}")
+            print(f"{bg_dark}{text_fg}{padded_line}{reset}")
         else:
-            print(f"{BG_LIGHT_BLUE}{TEXT_FG}{padded_line}{RESET}")
+            print(f"{bg_light}{text_fg}{padded_line}{reset}")
 
 
 if __name__ == "__main__":
