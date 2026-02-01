@@ -109,14 +109,15 @@ def time_to_minutes(time_str):
     return hours * 60 + mins
 
 
-def get_moon_state_at_sunset(sunset, moonrise, moonset, next_day_moonrise, next_day_moonset):
+def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_day_moonset):
     """
-    Determine if moon is up or down at sunset.
+    Determine if moon is up or down at a reference time.
 
-    Returns tuple: (state, moonset_info) where moonset_info is (time, is_next_day) or None
+    Returns tuple: (state, event_info) where event_info is (time, is_next_day, event_type)
+    event_type is 'Moonset' if moon is Up, 'Moonrise' if moon is Down
     """
-    sunset_mins = time_to_minutes(sunset)
-    if sunset_mins is None:
+    ref_mins = time_to_minutes(ref_time)
+    if ref_mins is None:
         return ('Unknown', None)
 
     moonrise_mins = time_to_minutes(moonrise)
@@ -124,53 +125,64 @@ def get_moon_state_at_sunset(sunset, moonrise, moonset, next_day_moonrise, next_
     next_moonrise_mins = time_to_minutes(next_day_moonrise)
     next_moonset_mins = time_to_minutes(next_day_moonset)
 
-    # Determine moon state at sunset
-    # Moon is Up if: moonrise occurred before sunset AND (moonset is after sunset OR no moonset today)
-    # Moon is Down if: moonset occurred before sunset AND (moonrise is after sunset OR no moonrise today)
+    # Determine moon state at reference time
+    # Moon is Up if: moonrise occurred before ref_time AND (moonset is after ref_time OR no moonset today)
+    # Moon is Down if: moonset occurred before ref_time AND (moonrise is after ref_time OR no moonrise today)
 
     if moonrise_mins is not None and moonset_mins is not None:
         if moonrise_mins < moonset_mins:
             # Normal day: rise then set
-            if moonrise_mins <= sunset_mins < moonset_mins:
-                return ('Up', (moonset, False))
+            if moonrise_mins <= ref_mins < moonset_mins:
+                return ('Up', (moonset, False, 'Moonset'))
+            elif ref_mins < moonrise_mins:
+                # ref_time before moonrise - moon is down, rises later tonight
+                return ('Down', (moonrise, False, 'Moonrise'))
             else:
-                return ('Down', None)
+                # ref_time after moonset - moon is down, rises next day
+                if next_moonrise_mins is not None:
+                    return ('Down', (next_day_moonrise, True, 'Moonrise'))
+                return ('Down', ('N/A', False, 'Moonrise'))
         else:
             # Moonset before moonrise (moon was up from previous day)
-            if sunset_mins < moonset_mins:
-                return ('Up', (moonset, False))
-            elif sunset_mins >= moonrise_mins:
-                # Find when moon sets (next day)
+            if ref_mins < moonset_mins:
+                return ('Up', (moonset, False, 'Moonset'))
+            elif ref_mins >= moonrise_mins:
+                # Moon rose again, find when it sets (next day)
                 if next_moonset_mins is not None:
-                    return ('Up', (next_day_moonset, True))
-                return ('Up', ('N/A', False))
+                    return ('Up', (next_day_moonset, True, 'Moonset'))
+                return ('Up', ('N/A', False, 'Moonset'))
             else:
-                return ('Down', None)
+                # Between moonset and moonrise - moon is down
+                return ('Down', (moonrise, False, 'Moonrise'))
 
     elif moonrise_mins is not None and moonset_mins is None:
         # Moonrise but no moonset today - moon sets next day
-        if moonrise_mins <= sunset_mins:
+        if moonrise_mins <= ref_mins:
             if next_moonset_mins is not None:
-                return ('Up', (next_day_moonset, True))
-            return ('Up', ('N/A', False))
+                return ('Up', (next_day_moonset, True, 'Moonset'))
+            return ('Up', ('N/A', False, 'Moonset'))
         else:
-            return ('Down', None)
+            # Moon rises after ref_time
+            return ('Down', (moonrise, False, 'Moonrise'))
 
     elif moonrise_mins is None and moonset_mins is not None:
         # Moonset but no moonrise today - moon was up from previous day
-        if sunset_mins < moonset_mins:
-            return ('Up', (moonset, False))
+        if ref_mins < moonset_mins:
+            return ('Up', (moonset, False, 'Moonset'))
         else:
-            return ('Down', None)
+            # Moon already set, rises next day
+            if next_moonrise_mins is not None:
+                return ('Down', (next_day_moonrise, True, 'Moonrise'))
+            return ('Down', ('N/A', False, 'Moonrise'))
 
     else:
         # No moonrise or moonset - moon either up or down all day
         # Check next day to infer
         if next_moonrise_mins is not None and next_moonset_mins is not None:
             if next_moonrise_mins < next_moonset_mins:
-                return ('Down', None)
+                return ('Down', (next_day_moonrise, True, 'Moonrise'))
             else:
-                return ('Up', (next_day_moonset, True))
+                return ('Up', (next_day_moonset, True, 'Moonset'))
         return ('Unknown', None)
 
 
@@ -242,19 +254,19 @@ def main():
         moonset = moon[1]
         twilight_end = twilight[1]
 
-        moon_state, moonset_info = get_moon_state_at_sunset(
-            sunset, moonrise, moonset, next_moon[0], next_moon[1]
+        moon_state, event_info = get_moon_state_at_time(
+            twilight_end, moonrise, moonset, next_moon[0], next_moon[1]
         )
 
         # Build output line
-        line = f"{month_names[MONTH][:3]} {day:2d}: Sunset {sunset}  Moon {moon_state:<4}  Twilight ends {twilight_end}"
+        line = f"{month_names[MONTH][:3]} {day:2d}: Sunset {sunset}  Twilight ends {twilight_end}  Moon {moon_state:<4}"
 
-        if moon_state == 'Up' and moonset_info:
-            moonset_time, is_next_day = moonset_info
+        if event_info:
+            event_time, is_next_day, event_type = event_info
             if is_next_day:
-                line += f"  Moonset {moonset_time} (next day)"
+                line += f"  {event_type} {event_time} (next day)"
             else:
-                line += f"  Moonset {moonset_time}"
+                line += f"  {event_type} {event_time}"
 
         print(line)
 

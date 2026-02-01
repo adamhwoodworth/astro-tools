@@ -14,10 +14,13 @@ Use variables for these configuration settings:
 
 For the month of June print each day with the following:
 * Sunset time
-* State of the moon at sunset, meaning:
+* End time of astronomical twilight
+* State of the moon at the end of astronomical twilight, meaning:
   * Up - moon is above the horizon
   * Down - moon is below the horizon
-* End time of astronomical twilight
-* If state of the moon at sunset is Up, then
-  * Display the time of the moonset that night even if it is the next day.
+* Display the moon set or moon rise time after sunset following these rules:
+  * If state of the moon at sunset is Up, then
+    * Display the time of the moonset that night even if it is the next day.
+  * If the state of the moon at sunset is Down, then
+    * Display the time of the moonrise that night even if it is the next day.
   * If it is the next day indicate that with (next day) text.
