@@ -10,7 +10,12 @@ Fetch the tables for sunrise/sunset, moonrise/moonset, and astronomical twilight
 Use variables for these configuration settings:
 * Use UTC -4 for EDT timezone.
 * Use GPS coords 44.81, -66.95
-* Use 2026 for the year.
+
+Use command line arguments for these and error out if they are not provided.
+Accept them as positional arguments: <year> <month>
+* Year as 4 digits
+* Month name
+  * 3 letter lowercase abbreviation
 
 For the month of June print each day with the following:
 * Sunset time

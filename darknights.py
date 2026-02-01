@@ -6,6 +6,7 @@ sunrise/sunset, moonrise/moonset, and astronomical twilight data.
 
 import requests
 import re
+import sys
 from tabulate import tabulate
 
 # ANSI color codes for blue astro palette
@@ -21,23 +22,33 @@ TEXT_FG = "\033[38;5;153m"       # Light blue text
 LATITUDE = 44.81
 LONGITUDE = -66.95
 TIMEZONE = 4  # Hours west of Greenwich (EDT = UTC-4)
-YEAR = 2026
-MONTH = 6  # June
+
+# Month abbreviation to number mapping
+MONTH_ABBREVS = {
+    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+    'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+}
+
+MONTH_NAMES = [
+    '', 'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+]
 
 
-def fetch_yearly_table(task):
+def fetch_yearly_table(task, year):
     """
     Fetch yearly table from USNO.
 
     Args:
         task: 0=sunrise/sunset, 1=moonrise/moonset, 4=astronomical twilight
+        year: 4-digit year
 
     Returns:
         Raw text response or None if request fails
     """
     url = (
         f"https://aa.usno.navy.mil/calculated/rstt/year"
-        f"?year={YEAR}&task={task}&lat={LATITUDE}&lon={LONGITUDE}"
+        f"?year={year}&task={task}&lat={LATITUDE}&lon={LONGITUDE}"
         f"&tz={TIMEZONE}&tz_sign=-1"
     )
 
@@ -262,41 +273,64 @@ def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_
         return ('Unknown', None)
 
 
+def parse_args():
+    """Parse and validate command line arguments."""
+    if len(sys.argv) != 3:
+        print(f"Usage: {sys.argv[0]} <year> <month>", file=sys.stderr)
+        print("  year:  4-digit year (e.g., 2026)", file=sys.stderr)
+        print("  month: 3-letter lowercase abbreviation (e.g., jun)", file=sys.stderr)
+        sys.exit(1)
+
+    year_str = sys.argv[1]
+    month_str = sys.argv[2].lower()
+
+    # Validate year
+    if not year_str.isdigit() or len(year_str) != 4:
+        print(f"Error: year must be 4 digits, got '{year_str}'", file=sys.stderr)
+        sys.exit(1)
+    year = int(year_str)
+
+    # Validate month
+    if month_str not in MONTH_ABBREVS:
+        print(f"Error: month must be 3-letter abbreviation, got '{month_str}'", file=sys.stderr)
+        print(f"Valid months: {', '.join(MONTH_ABBREVS.keys())}", file=sys.stderr)
+        sys.exit(1)
+    month = MONTH_ABBREVS[month_str]
+
+    return year, month
+
+
 def main():
     """Fetch and display astronomical data for the configured month."""
-    print(f"Fetching astronomical data for {YEAR}...")
+    year, month = parse_args()
+
+    print(f"Fetching astronomical data for {year}...")
     print(f"Location: {LATITUDE}°N, {LONGITUDE}°W")
     print(f"Timezone: UTC-{TIMEZONE} (EDT)")
     print()
 
     # Fetch all three tables
     print("Fetching sunrise/sunset table...")
-    sun_html = fetch_yearly_table(0)
+    sun_html = fetch_yearly_table(0, year)
 
     print("Fetching moonrise/moonset table...")
-    moon_html = fetch_yearly_table(1)
+    moon_html = fetch_yearly_table(1, year)
 
     print("Fetching astronomical twilight table...")
-    twilight_html = fetch_yearly_table(4)
+    twilight_html = fetch_yearly_table(4, year)
 
     if not sun_html or not moon_html or not twilight_html:
         print("Failed to fetch one or more tables.")
         return
 
     # Parse tables for the target month and next month (for next-day moonset)
-    sun_data = parse_table(sun_html, MONTH)
-    moon_data = parse_table(moon_html, MONTH)
-    twilight_data = parse_table(twilight_html, MONTH)
+    sun_data = parse_table(sun_html, month)
+    moon_data = parse_table(moon_html, month)
+    twilight_data = parse_table(twilight_html, month)
 
-    next_month = MONTH + 1 if MONTH < 12 else 1
+    next_month = month + 1 if month < 12 else 1
     next_moon_data = parse_table(moon_html, next_month)
     next_twilight_data = parse_table(twilight_html, next_month)
-
-    # Get month name
-    month_names = [
-        '', 'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ]
 
     # Get the number of days in the month
     days_in_month = {
@@ -305,22 +339,22 @@ def main():
     }
 
     # Check for leap year
-    if MONTH == 2 and (YEAR % 4 == 0 and (YEAR % 100 != 0 or YEAR % 400 == 0)):
+    if month == 2 and (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
         days_in_month[2] = 29
 
     print()
-    print(f"{month_names[MONTH]} {YEAR}")
+    print(f"{MONTH_NAMES[month]} {year}")
     print()
 
     rows = []
-    for day in range(1, days_in_month[MONTH] + 1):
+    for day in range(1, days_in_month[month] + 1):
         sun = sun_data.get(day, ('N/A', 'N/A'))
         moon = moon_data.get(day, ('N/A', 'N/A'))
         twilight = twilight_data.get(day, ('N/A', 'N/A'))
 
         # Get next day's data
         next_day = day + 1
-        if next_day > days_in_month[MONTH]:
+        if next_day > days_in_month[month]:
             next_moon = next_moon_data.get(1, ('N/A', 'N/A'))
             next_twilight = next_twilight_data.get(1, ('N/A', 'N/A'))
         else:
@@ -359,7 +393,7 @@ def main():
             rating = "★" * hours
 
         rows.append([
-            f"{month_names[MONTH][:3]} {day:2d}",
+            f"{MONTH_NAMES[month][:3]} {day:2d}",
             sunset,
             twilight_end,
             moon_state,
