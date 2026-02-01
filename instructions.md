@@ -33,5 +33,7 @@ For the month of June print each day with the following:
       * Show the length of time from the moonset until the start of astronomical twilight
     * If the moon sets after the start of astronomical twilight the next morning, then
       * Show "Never Dark"
+* Rating for amount of dark sky that night, defined as:
+  * For the number of hours of dark sky, print that number of stars
 
 Use the tabulate python module to make columnar output.

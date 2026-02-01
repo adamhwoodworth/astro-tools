@@ -343,6 +343,13 @@ def main():
             moon_state, event_info, twilight_end, next_morning_twilight
         )
 
+        # Calculate rating (stars for each hour of dark sky)
+        if dark_length == "Never Dark" or dark_length == "N/A":
+            rating = ""
+        else:
+            hours = int(dark_length.split(':')[0])
+            rating = "★" * hours
+
         rows.append([
             f"{month_names[MONTH][:3]} {day:2d}",
             sunset,
@@ -350,10 +357,11 @@ def main():
             moon_state,
             moon_event,
             next_morning_twilight,
-            dark_length
+            dark_length,
+            rating
         ])
 
-    headers = ["Date", "Sunset", "Twi End", "Moon", "Moon Event", "Twi Start", "Dark Sky"]
+    headers = ["Date", "Sunset", "Twi End", "Moon", "Moon Event", "Twi Start", "Dark Sky", "Rating"]
     print(tabulate(rows, headers=headers, tablefmt="simple"))
 
 
