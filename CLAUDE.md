@@ -5,59 +5,57 @@ Collection of Python tools for astrophotography and night sky observation planni
 
 ## Tools
 
-### moon-dark-nights.py
-Calculates dates when the moon is below the horizon from sunset until at least 1 AM, useful for astrophotography planning.
+### darknights.py
+Displays astronomical data for astrophotography planning, showing sunset, twilight, moon state, and dark sky duration for each night of a specified month.
 
 ## Running Tools
 
 ### Always use uv run
 ```bash
-uv run python -u moon-dark-nights.py
+uv run darknights.py <year> <month>
 ```
 
-**Important**:
-- Always use `uv run` to execute Python commands
-- Use `-u` flag for unbuffered output to see real-time results (scripts may make API calls with delays)
-- Without `-u`, output will be buffered and appear delayed
+### Examples
+```bash
+uv run darknights.py 2026 jun
+uv run darknights.py 2026 jul --no-color
+```
 
-## Moon Dark Nights Configuration
+## Configuration
 
 ### Location Settings
-Located in `moon-dark-nights.py`:
+Located in `darknights.py`:
 ```python
-LATITUDE = 44.8
-LONGITUDE = -66.96
-TIMEZONE = -4  # US Eastern Daylight Time (UTC-4)
+LATITUDE = 44.81
+LONGITUDE = -66.95
+TIMEZONE = 4  # Hours west of Greenwich (EDT = UTC-4)
 ```
 
-### Date Ranges
-Modify `DATE_RANGES` list to check different months:
-```python
-DATE_RANGES = [
-    (2026, 6, 1, 30),   # June 2026
-    (2026, 7, 1, 31),   # July 2026
-    # etc.
-]
-```
-
-### Cutoff Hour
-```python
-CUTOFF_HOUR = 1  # Moon must be below horizon until at least 1 AM
-```
+### Command Line Arguments
+- `year`: 4-digit year (e.g., 2026)
+- `month`: 3-letter lowercase abbreviation (jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec)
+- `--no-color`: Optional flag to disable ANSI color codes in output
 
 ## Data Source
-Uses US Naval Observatory API:
-- Endpoint: `https://aa.usno.navy.mil/api/rstt/oneday`
-- Rate limiting: Script includes 0.1s delay between requests
-- Returns sunrise, sunset, moonrise, and moonset times
+Uses US Naval Observatory yearly tables API:
+- Endpoint: `https://aa.usno.navy.mil/calculated/rstt/year`
+- Returns sunrise/sunset, moonrise/moonset, and astronomical twilight times
+- Fetches three separate tables per run
 
 ## Output Format
-- `✓` - Qualifying night (moon below horizon from sunset until cutoff)
-- `✗` - Non-qualifying night
-- `(next day)` - Indicates moonrise occurs after midnight
-- `N/A` - Event doesn't occur on that date
+Displays a table with:
+- **Date**: Day of the month
+- **Sunset**: Sunset time
+- **Twi End**: End of astronomical twilight
+- **Moon**: Moon state at twilight end (Up/Down)
+- **Moon Event**: Next moonrise or moonset with time
+- **Twi Start**: Start of next morning's twilight
+- **Dark Sky**: Duration of moonless dark sky
+- **Rating**: Star rating (★) for each hour of dark sky
 
-## Code Structure
-- `fetch_astronomical_data()` - API calls to USNO
-- `check_moon_below_horizon()` - Logic to determine if night qualifies
-- `main()` - Loops through date ranges and displays results
+## Testing
+
+Run tests with:
+```bash
+uv run pytest tests/ -v
+```
