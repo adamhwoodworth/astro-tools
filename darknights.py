@@ -6,6 +6,7 @@ sunrise/sunset, moonrise/moonset, and astronomical twilight data.
 
 import requests
 import re
+from tabulate import tabulate
 
 
 # Configuration
@@ -107,6 +108,73 @@ def time_to_minutes(time_str):
         return None
     hours, mins = map(int, time_str.split(':'))
     return hours * 60 + mins
+
+
+def minutes_to_duration(minutes):
+    """Convert minutes to H:MM format."""
+    hours = minutes // 60
+    mins = minutes % 60
+    return f"{hours}:{mins:02d}"
+
+
+def calc_dark_sky_length(moon_state, event_info, twilight_end, next_morning_twilight):
+    """
+    Calculate length of moonless dark sky.
+
+    Args:
+        moon_state: 'Up' or 'Down'
+        event_info: (time, is_next_day, event_type) or None
+        twilight_end: End of astronomical twilight (HH:MM)
+        next_morning_twilight: Start of next morning's twilight (HH:MM)
+
+    Returns:
+        String with duration or "Never Dark"
+    """
+    twilight_end_mins = time_to_minutes(twilight_end)
+    next_twi_mins = time_to_minutes(next_morning_twilight)
+
+    if twilight_end_mins is None or next_twi_mins is None:
+        return "N/A"
+
+    # Next morning twilight is on the next day, so add 24 hours
+    next_twi_mins_adjusted = next_twi_mins + 24 * 60
+
+    if moon_state == 'Down':
+        # Dark from twilight end until moonrise or next twilight, whichever is earlier
+        if event_info:
+            event_time, is_next_day, event_type = event_info
+            event_mins = time_to_minutes(event_time)
+            if event_mins is not None:
+                if is_next_day:
+                    event_mins_adjusted = event_mins + 24 * 60
+                else:
+                    event_mins_adjusted = event_mins
+                # Dark until moonrise or twilight start, whichever is earlier
+                dark_end = min(event_mins_adjusted, next_twi_mins_adjusted)
+                dark_length = dark_end - twilight_end_mins
+                return minutes_to_duration(dark_length)
+        # No moonrise event, dark until next twilight
+        dark_length = next_twi_mins_adjusted - twilight_end_mins
+        return minutes_to_duration(dark_length)
+
+    else:  # Moon is Up
+        # Need to wait for moonset
+        if event_info:
+            event_time, is_next_day, event_type = event_info
+            event_mins = time_to_minutes(event_time)
+            if event_mins is not None:
+                if is_next_day:
+                    event_mins_adjusted = event_mins + 24 * 60
+                else:
+                    event_mins_adjusted = event_mins
+
+                # Check if moonset is before next morning twilight
+                if event_mins_adjusted < next_twi_mins_adjusted:
+                    dark_length = next_twi_mins_adjusted - event_mins_adjusted
+                    return minutes_to_duration(dark_length)
+                else:
+                    return "Never Dark"
+        return "Never Dark"
 
 
 def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_day_moonset):
@@ -233,11 +301,10 @@ def main():
         days_in_month[2] = 29
 
     print()
-    print(f"{'=' * 70}")
     print(f"{month_names[MONTH]} {YEAR}")
-    print(f"{'=' * 70}")
     print()
 
+    rows = []
     for day in range(1, days_in_month[MONTH] + 1):
         sun = sun_data.get(day, ('N/A', 'N/A'))
         moon = moon_data.get(day, ('N/A', 'N/A'))
@@ -262,19 +329,32 @@ def main():
             twilight_end, moonrise, moonset, next_moon[0], next_moon[1]
         )
 
-        # Build output line
-        line = f"{month_names[MONTH][:3]} {day:2d}: Sunset {sunset}  Twilight ends {twilight_end}  Moon {moon_state:<4}"
-
+        # Build moon event column
+        moon_event = ""
         if event_info:
             event_time, is_next_day, event_type = event_info
             if is_next_day:
-                line += f"  {event_type} {event_time} (next day)"
+                moon_event = f"{event_type} {event_time} (next day)"
             else:
-                line += f"  {event_type} {event_time}"
+                moon_event = f"{event_type} {event_time}"
 
-        line += f"  Twilight starts {next_morning_twilight}"
+        # Calculate dark sky length
+        dark_length = calc_dark_sky_length(
+            moon_state, event_info, twilight_end, next_morning_twilight
+        )
 
-        print(line)
+        rows.append([
+            f"{month_names[MONTH][:3]} {day:2d}",
+            sunset,
+            twilight_end,
+            moon_state,
+            moon_event,
+            next_morning_twilight,
+            dark_length
+        ])
+
+    headers = ["Date", "Sunset", "Twi End", "Moon", "Moon Event", "Twi Start", "Dark Sky"]
+    print(tabulate(rows, headers=headers, tablefmt="simple"))
 
 
 if __name__ == "__main__":

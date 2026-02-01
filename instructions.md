@@ -18,10 +18,20 @@ For the month of June print each day with the following:
 * State of the moon at the end of astronomical twilight, meaning:
   * Up - moon is above the horizon
   * Down - moon is below the horizon
-* Display the moon set or moon rise time after sunset following these rules:
-  * If state of the moon at sunset is Up, then
+* Display the moon set or moon rise time after astronomical twilight following these rules:
+  * If state of the moon at the end of astronomical twilight is Up, then
     * Display the time of the moonset that night even if it is the next day.
-  * If the state of the moon at sunset is Down, then
+  * If the state of the moon at the end of astronomical twilight is Down, then
     * Display the time of the moonrise that night even if it is the next day.
   * If it is the next day indicate that with (next day) text.
-* Display the start of astronomical twilight for the next morning.
+* Start of astronomical twilight for the next morning.
+* Length of moonless dark sky that night defined as:
+  * If the state of the moon is Down at the end of astronomical twilight, then
+    * Show the length of time from the end of astronomical twilight until the moon rises or until the start of the next morning's astronomical twilight, whichever is earlier
+  * If the state of the moon is Up at the end of astronomical twilight, then
+    * If the moon sets before the start of astronomical twilight the next morning, then
+      * Show the length of time from the moonset until the start of astronomical twilight
+    * If the moon sets after the start of astronomical twilight the next morning, then
+      * Show "Never Dark"
+
+Use the tabulate python module to make columnar output.
