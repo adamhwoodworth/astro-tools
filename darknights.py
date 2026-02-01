@@ -214,6 +214,7 @@ def main():
 
     next_month = MONTH + 1 if MONTH < 12 else 1
     next_moon_data = parse_table(moon_html, next_month)
+    next_twilight_data = parse_table(twilight_html, next_month)
 
     # Get month name
     month_names = [
@@ -242,17 +243,20 @@ def main():
         moon = moon_data.get(day, ('N/A', 'N/A'))
         twilight = twilight_data.get(day, ('N/A', 'N/A'))
 
-        # Get next day's moon data
+        # Get next day's data
         next_day = day + 1
         if next_day > days_in_month[MONTH]:
             next_moon = next_moon_data.get(1, ('N/A', 'N/A'))
+            next_twilight = next_twilight_data.get(1, ('N/A', 'N/A'))
         else:
             next_moon = moon_data.get(next_day, ('N/A', 'N/A'))
+            next_twilight = twilight_data.get(next_day, ('N/A', 'N/A'))
 
         sunset = sun[1]
         moonrise = moon[0]
         moonset = moon[1]
         twilight_end = twilight[1]
+        next_morning_twilight = next_twilight[0]
 
         moon_state, event_info = get_moon_state_at_time(
             twilight_end, moonrise, moonset, next_moon[0], next_moon[1]
@@ -267,6 +271,8 @@ def main():
                 line += f"  {event_type} {event_time} (next day)"
             else:
                 line += f"  {event_type} {event_time}"
+
+        line += f"  Twilight starts {next_morning_twilight}"
 
         print(line)
 

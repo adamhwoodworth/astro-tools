@@ -24,3 +24,4 @@ For the month of June print each day with the following:
   * If the state of the moon at sunset is Down, then
     * Display the time of the moonrise that night even if it is the next day.
   * If it is the next day indicate that with (next day) text.
+* Display the start of astronomical twilight for the next morning.
