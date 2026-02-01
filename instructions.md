@@ -36,4 +36,8 @@ For the month of June print each day with the following:
 * Rating for amount of dark sky that night, defined as:
   * For the number of hours of dark sky, print that number of stars
 
+Use multi-colored output so that the background color of the rows alternates making
+the rows easier to read. Use a nice blue astro pallete.
+Each row should be fully colored for the entire width of the table even if that row ends earlier than the max width of the table.
+
 Use the tabulate python module to make columnar output.

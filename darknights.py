@@ -8,6 +8,14 @@ import requests
 import re
 from tabulate import tabulate
 
+# ANSI color codes for blue astro palette
+RESET = "\033[0m"
+BG_DARK_BLUE = "\033[48;5;17m"    # Dark navy blue
+BG_LIGHT_BLUE = "\033[48;5;18m"  # Slightly lighter blue
+HEADER_BG = "\033[48;5;19m"       # Header blue
+HEADER_FG = "\033[97m"           # Bright white text
+TEXT_FG = "\033[38;5;153m"       # Light blue text
+
 
 # Configuration
 LATITUDE = 44.81
@@ -362,7 +370,25 @@ def main():
         ])
 
     headers = ["Date", "Sunset", "Twi End", "Moon", "Moon Event", "Twi Start", "Dark Sky", "Rating"]
-    print(tabulate(rows, headers=headers, tablefmt="simple"))
+
+    # Get column widths from tabulate
+    table_str = tabulate(rows, headers=headers, tablefmt="simple")
+    lines = table_str.split('\n')
+
+    # Find max width for full-width coloring
+    max_width = max(len(line) for line in lines)
+
+    # Print header with color
+    print(f"{HEADER_BG}{HEADER_FG}{lines[0]:<{max_width}}{RESET}")
+    print(f"{HEADER_BG}{HEADER_FG}{lines[1]:<{max_width}}{RESET}")
+
+    # Print data rows with alternating colors
+    for i, line in enumerate(lines[2:]):
+        padded_line = f"{line:<{max_width}}"
+        if i % 2 == 0:
+            print(f"{BG_DARK_BLUE}{TEXT_FG}{padded_line}{RESET}")
+        else:
+            print(f"{BG_LIGHT_BLUE}{TEXT_FG}{padded_line}{RESET}")
 
 
 if __name__ == "__main__":
