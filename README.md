@@ -17,16 +17,21 @@ Uses data from the US Naval Observatory to calculate when the moon is below the 
 ### Usage
 
 ```bash
-uv run darknights.py <year> <month> [--no-color]
+uv run darknights.py <year> <month> [--no-color] [--no-cache]
 ```
 
 Examples:
 ```bash
 uv run darknights.py 2026 jun
 uv run darknights.py 2026 jul --no-color
+uv run darknights.py 2026 aug --no-cache
 ```
 
 Valid months: `jan`, `feb`, `mar`, `apr`, `may`, `jun`, `jul`, `aug`, `sep`, `oct`, `nov`, `dec`
+
+Options:
+- `--no-color`: Disable ANSI color codes in output
+- `--no-cache`: Bypass cache and fetch fresh data from USNO
 
 ### Running Tests
 

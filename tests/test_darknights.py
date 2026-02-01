@@ -8,7 +8,7 @@ FIXTURES_DIR = Path(__file__).parent / 'fixtures'
 def test_darknights_2026_jun():
     """Test that darknights.py produces expected output for June 2026."""
     result = subprocess.run(
-        ['uv', 'run', 'darknights.py', '2026', 'jun', '--no-color'],
+        ['uv', 'run', 'darknights.py', '2026', 'jun', '--no-color', '--no-cache'],
         capture_output=True,
         text=True,
         timeout=120

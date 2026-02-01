@@ -47,3 +47,12 @@ the rows easier to read. Use a nice blue astro pallete.
 Each row should be fully colored for the entire width of the table even if that row ends earlier than the max width of the table.
 
 Use the tabulate python module to make columnar output.
+
+## Cache
+The data from USNO can be cached since it is static as long as the parameters are all the same.
+Use a `cache` directory (add it to `.gitignore`)
+Store the output of a the html for each unique http request in that directory.
+Use the CGI parameters from the HTTP request in the filename so that the cache
+mechanism can quickly see if a cached copy is already saved.
+Add a --no-cache parameter that when specified causes darknights.py to ignore the cache entirely,
+meaning do not look in the cache and do not save to the cache. Use this flag in the test script.

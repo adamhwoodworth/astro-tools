@@ -7,6 +7,8 @@ sunrise/sunset, moonrise/moonset, and astronomical twilight data.
 import requests
 import re
 import sys
+import hashlib
+from pathlib import Path
 from tabulate import tabulate
 
 # ANSI color codes for blue astro palette
@@ -22,6 +24,7 @@ TEXT_FG = "\033[38;5;153m"       # Light blue text
 LATITUDE = 44.81
 LONGITUDE = -66.95
 TIMEZONE = 4  # Hours west of Greenwich (EDT = UTC-4)
+CACHE_DIR = Path("cache")
 
 # Month abbreviation to number mapping
 MONTH_ABBREVS = {
@@ -35,13 +38,14 @@ MONTH_NAMES = [
 ]
 
 
-def fetch_yearly_table(task, year):
+def fetch_yearly_table(task, year, no_cache=False):
     """
-    Fetch yearly table from USNO.
+    Fetch yearly table from USNO with caching.
 
     Args:
         task: 0=sunrise/sunset, 1=moonrise/moonset, 4=astronomical twilight
         year: 4-digit year
+        no_cache: If True, bypass cache completely
 
     Returns:
         Raw text response or None if request fails
@@ -52,10 +56,27 @@ def fetch_yearly_table(task, year):
         f"&tz={TIMEZONE}&tz_sign=-1"
     )
 
+    # Create cache filename from URL parameters
+    cache_key = f"year={year}&task={task}&lat={LATITUDE}&lon={LONGITUDE}&tz={TIMEZONE}&tz_sign=-1"
+    cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
+    cache_file = CACHE_DIR / f"{cache_hash}.html"
+
+    # Check cache if not disabled
+    if not no_cache and cache_file.exists():
+        return cache_file.read_text()
+
+    # Fetch from USNO
     try:
         response = requests.get(url, timeout=30)
         response.raise_for_status()
-        return response.text
+        data = response.text
+
+        # Save to cache if not disabled
+        if not no_cache:
+            CACHE_DIR.mkdir(exist_ok=True)
+            cache_file.write_text(data)
+
+        return data
     except Exception as e:
         print(f"Error fetching data (task={task}): {e}")
         return None
@@ -275,16 +296,21 @@ def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_
 
 def parse_args():
     """Parse and validate command line arguments."""
-    # Check for --no-color flag
+    # Check for optional flags
     no_color = '--no-color' in sys.argv
     if no_color:
         sys.argv.remove('--no-color')
 
+    no_cache = '--no-cache' in sys.argv
+    if no_cache:
+        sys.argv.remove('--no-cache')
+
     if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <year> <month> [--no-color]", file=sys.stderr)
-        print("  year:     4-digit year (e.g., 2026)", file=sys.stderr)
-        print("  month:    3-letter lowercase abbreviation (e.g., jun)", file=sys.stderr)
+        print(f"Usage: {sys.argv[0]} <year> <month> [--no-color] [--no-cache]", file=sys.stderr)
+        print("  year:      4-digit year (e.g., 2026)", file=sys.stderr)
+        print("  month:     3-letter lowercase abbreviation (e.g., jun)", file=sys.stderr)
         print("  --no-color: disable ANSI color codes in output", file=sys.stderr)
+        print("  --no-cache: bypass cache for HTTP requests", file=sys.stderr)
         sys.exit(1)
 
     year_str = sys.argv[1]
@@ -303,12 +329,12 @@ def parse_args():
         sys.exit(1)
     month = MONTH_ABBREVS[month_str]
 
-    return year, month, no_color
+    return year, month, no_color, no_cache
 
 
 def main():
     """Fetch and display astronomical data for the configured month."""
-    year, month, no_color = parse_args()
+    year, month, no_color, no_cache = parse_args()
 
     # Set color codes based on --no-color flag
     if no_color:
@@ -328,13 +354,13 @@ def main():
 
     # Fetch all three tables
     print("Fetching sunrise/sunset table...")
-    sun_html = fetch_yearly_table(0, year)
+    sun_html = fetch_yearly_table(0, year, no_cache)
 
     print("Fetching moonrise/moonset table...")
-    moon_html = fetch_yearly_table(1, year)
+    moon_html = fetch_yearly_table(1, year, no_cache)
 
     print("Fetching astronomical twilight table...")
-    twilight_html = fetch_yearly_table(4, year)
+    twilight_html = fetch_yearly_table(4, year, no_cache)
 
     if not sun_html or not moon_html or not twilight_html:
         print("Failed to fetch one or more tables.")
