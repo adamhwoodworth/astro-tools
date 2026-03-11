@@ -8,8 +8,11 @@ import requests
 import re
 import sys
 import hashlib
+from datetime import datetime
 from pathlib import Path
 from tabulate import tabulate
+from timezonefinder import TimezoneFinder
+from zoneinfo import ZoneInfo
 
 # ANSI color codes for blue astro palette
 RESET = "\033[0m"
@@ -19,11 +22,7 @@ HEADER_BG = "\033[48;5;19m"       # Header blue
 HEADER_FG = "\033[97m"           # Bright white text
 TEXT_FG = "\033[38;5;153m"       # Light blue text
 
-
 # Configuration
-LATITUDE = 44.81
-LONGITUDE = -66.95
-TIMEZONE = 4  # Hours west of Greenwich (EDT = UTC-4)
 CACHE_DIR = Path("cache")
 
 # Month abbreviation to number mapping
@@ -38,13 +37,17 @@ MONTH_NAMES = [
 ]
 
 
-def fetch_yearly_table(task, year, no_cache=False):
+def fetch_yearly_table(task, year, lat, lon, tz, tz_sign, no_cache=False):
     """
     Fetch yearly table from USNO with caching.
 
     Args:
         task: 0=sunrise/sunset, 1=moonrise/moonset, 4=astronomical twilight
         year: 4-digit year
+        lat: Latitude
+        lon: Longitude
+        tz: Timezone offset (positive integer)
+        tz_sign: -1 for west of Greenwich, 1 for east
         no_cache: If True, bypass cache completely
 
     Returns:
@@ -52,12 +55,12 @@ def fetch_yearly_table(task, year, no_cache=False):
     """
     url = (
         f"https://aa.usno.navy.mil/calculated/rstt/year"
-        f"?year={year}&task={task}&lat={LATITUDE}&lon={LONGITUDE}"
-        f"&tz={TIMEZONE}&tz_sign=-1"
+        f"?year={year}&task={task}&lat={lat}&lon={lon}"
+        f"&tz={tz}&tz_sign={tz_sign}"
     )
 
     # Create cache filename from URL parameters
-    cache_key = f"year={year}&task={task}&lat={LATITUDE}&lon={LONGITUDE}&tz={TIMEZONE}&tz_sign=-1"
+    cache_key = f"year={year}&task={task}&lat={lat}&lon={lon}&tz={tz}&tz_sign={tz_sign}"
     cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
     cache_file = CACHE_DIR / f"{cache_hash}.html"
 
@@ -297,6 +300,20 @@ def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_
         return ('Unknown', None)
 
 
+def parse_latlong(arg):
+    """Parse lat/long from a single argument string (e.g., '44.85, -66.98' or '44.85,-66.98')."""
+    if ',' not in arg:
+        print("Error: lat,long must be separated by a comma", file=sys.stderr)
+        sys.exit(1)
+
+    parts = arg.split(',', 1)
+    try:
+        return float(parts[0].strip()), float(parts[1].strip())
+    except ValueError:
+        print(f"Error: invalid lat,long: '{arg}'", file=sys.stderr)
+        sys.exit(1)
+
+
 def parse_args():
     """Parse and validate command line arguments."""
     # Check for optional flags
@@ -308,68 +325,60 @@ def parse_args():
     if no_cache:
         sys.argv.remove('--no-cache')
 
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <year> <month> [--no-color] [--no-cache]", file=sys.stderr)
-        print("  year:      4-digit year (e.g., 2026)", file=sys.stderr)
-        print("  month:     3-letter lowercase abbreviation (e.g., jun)", file=sys.stderr)
+    args = sys.argv[1:]
+
+    if not args:
+        print(f"Usage: {sys.argv[0]} <lat,long> [year] [month] [--no-color] [--no-cache]", file=sys.stderr)
+        print("  lat,long:  latitude,longitude from Google Maps", file=sys.stderr)
+        print("             e.g., '44.85, -66.98' or 44.85,-66.98", file=sys.stderr)
+        print("  year:      4-digit year (default: current year)", file=sys.stderr)
+        print("  month:     3-letter abbreviation (default: all months)", file=sys.stderr)
         print("  --no-color: disable ANSI color codes in output", file=sys.stderr)
         print("  --no-cache: bypass cache for HTTP requests", file=sys.stderr)
         sys.exit(1)
 
-    year_str = sys.argv[1]
-    month_str = sys.argv[2].lower()
+    lat, lon = parse_latlong(args[0])
+    remaining = args[1:]
 
-    # Validate year
-    if not year_str.isdigit() or len(year_str) != 4:
-        print(f"Error: year must be 4 digits, got '{year_str}'", file=sys.stderr)
-        sys.exit(1)
-    year = int(year_str)
+    year = None
+    month = None
 
-    # Validate month
-    if month_str not in MONTH_ABBREVS:
-        print(f"Error: month must be 3-letter abbreviation, got '{month_str}'", file=sys.stderr)
-        print(f"Valid months: {', '.join(MONTH_ABBREVS.keys())}", file=sys.stderr)
-        sys.exit(1)
-    month = MONTH_ABBREVS[month_str]
+    if remaining:
+        year_str = remaining[0]
+        if not year_str.isdigit() or len(year_str) != 4:
+            print(f"Error: year must be 4 digits, got '{year_str}'", file=sys.stderr)
+            sys.exit(1)
+        year = int(year_str)
 
-    return year, month, no_color, no_cache
+    if len(remaining) >= 2:
+        month_str = remaining[1].lower()
+        if month_str not in MONTH_ABBREVS:
+            print(f"Error: month must be 3-letter abbreviation, got '{month_str}'", file=sys.stderr)
+            print(f"Valid months: {', '.join(MONTH_ABBREVS.keys())}", file=sys.stderr)
+            sys.exit(1)
+        month = MONTH_ABBREVS[month_str]
+
+    if year is None:
+        year = datetime.now().year
+
+    return lat, lon, year, month, no_color, no_cache
 
 
-def main():
-    """Fetch and display astronomical data for the configured month."""
-    year, month, no_color, no_cache = parse_args()
+def get_days_in_month(year, month):
+    """Return the number of days in a given month/year."""
+    days = {
+        1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
+        7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31
+    }
+    if month == 2 and (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
+        days[2] = 29
+    return days[month]
 
-    # Set color codes based on --no-color flag
-    if no_color:
-        reset = bg_dark = bg_light = header_bg = header_fg = text_fg = ""
-    else:
-        reset = RESET
-        bg_dark = BG_DARK_BLUE
-        bg_light = BG_LIGHT_BLUE
-        header_bg = HEADER_BG
-        header_fg = HEADER_FG
-        text_fg = TEXT_FG
 
-    print(f"Fetching astronomical data for {year}...")
-    print(f"Location: {LATITUDE}°N, {LONGITUDE}°W")
-    print(f"Timezone: UTC-{TIMEZONE} (EDT)")
-    print()
+def display_month(year, month, sun_html, moon_html, twilight_html, colors):
+    """Parse and display astronomical data for a single month."""
+    reset, bg_dark, bg_light, header_bg, header_fg, text_fg = colors
 
-    # Fetch all three tables
-    print("Fetching sunrise/sunset table...")
-    sun_html = fetch_yearly_table(0, year, no_cache)
-
-    print("Fetching moonrise/moonset table...")
-    moon_html = fetch_yearly_table(1, year, no_cache)
-
-    print("Fetching astronomical twilight table...")
-    twilight_html = fetch_yearly_table(4, year, no_cache)
-
-    if not sun_html or not moon_html or not twilight_html:
-        print("Failed to fetch one or more tables.")
-        return
-
-    # Parse tables for the target month and next month (for next-day moonset)
     sun_data = parse_table(sun_html, month)
     moon_data = parse_table(moon_html, month)
     twilight_data = parse_table(twilight_html, month)
@@ -378,29 +387,19 @@ def main():
     next_moon_data = parse_table(moon_html, next_month)
     next_twilight_data = parse_table(twilight_html, next_month)
 
-    # Get the number of days in the month
-    days_in_month = {
-        1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
-        7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31
-    }
+    num_days = get_days_in_month(year, month)
 
-    # Check for leap year
-    if month == 2 and (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
-        days_in_month[2] = 29
-
-    print()
-    print(f"{MONTH_NAMES[month]} {year}")
     print()
 
     rows = []
-    for day in range(1, days_in_month[month] + 1):
+    for day in range(1, num_days + 1):
         sun = sun_data.get(day, ('N/A', 'N/A'))
         moon = moon_data.get(day, ('N/A', 'N/A'))
         twilight = twilight_data.get(day, ('N/A', 'N/A'))
 
         # Get next day's data
         next_day = day + 1
-        if next_day > days_in_month[month]:
+        if next_day > num_days:
             next_moon = next_moon_data.get(1, ('N/A', 'N/A'))
             next_twilight = next_twilight_data.get(1, ('N/A', 'N/A'))
         else:
@@ -436,7 +435,7 @@ def main():
             rating = ""
         else:
             hours = int(dark_length.split(':')[0])
-            rating = "★" * hours
+            rating = "\u2605" * hours
 
         rows.append([
             f"{MONTH_NAMES[month][:3]} {day:2d}",
@@ -458,7 +457,9 @@ def main():
     # Find max width for full-width coloring
     max_width = max(len(line) for line in lines)
 
-    # Print header with color
+    # Print month title and header with color
+    month_title = f"{MONTH_NAMES[month]} {year}"
+    print(f"{header_bg}{header_fg}{month_title:<{max_width}}{reset}")
     print(f"{header_bg}{header_fg}{lines[0]:<{max_width}}{reset}")
     print(f"{header_bg}{header_fg}{lines[1]:<{max_width}}{reset}")
 
@@ -469,6 +470,60 @@ def main():
             print(f"{bg_dark}{text_fg}{padded_line}{reset}")
         else:
             print(f"{bg_light}{text_fg}{padded_line}{reset}")
+
+
+def main():
+    """Fetch and display astronomical data."""
+    lat, lon, year, month, no_color, no_cache = parse_args()
+
+    # Compute timezone from lat/long
+    tf = TimezoneFinder()
+    tz_name = tf.timezone_at(lat=lat, lng=lon)
+    if tz_name is None:
+        print(f"Error: could not determine timezone for {lat}, {lon}", file=sys.stderr)
+        sys.exit(1)
+
+    # Use January 1 to get standard (non-DST) offset
+    dt = datetime(year, 1, 1, tzinfo=ZoneInfo(tz_name))
+    offset_hours = dt.utcoffset().total_seconds() / 3600
+    tz_value = int(abs(offset_hours))
+    tz_sign = -1 if offset_hours <= 0 else 1
+
+    # Set color codes based on --no-color flag
+    if no_color:
+        colors = ("", "", "", "", "", "")
+    else:
+        colors = (RESET, BG_DARK_BLUE, BG_LIGHT_BLUE, HEADER_BG, HEADER_FG, TEXT_FG)
+
+    lat_dir = "N" if lat >= 0 else "S"
+    lon_dir = "E" if lon >= 0 else "W"
+    print(f"Fetching astronomical data for {year}...")
+    print(f"Location: {abs(lat):.4f}\u00b0{lat_dir}, {abs(lon):.4f}\u00b0{lon_dir}")
+    print(f"Timezone: {tz_name} (UTC{offset_hours:+.0f})")
+    print()
+
+    # Fetch all three tables
+    print("Fetching sunrise/sunset table...")
+    sun_html = fetch_yearly_table(0, year, lat, lon, tz_value, tz_sign, no_cache)
+
+    print("Fetching moonrise/moonset table...")
+    moon_html = fetch_yearly_table(1, year, lat, lon, tz_value, tz_sign, no_cache)
+
+    print("Fetching astronomical twilight table...")
+    twilight_html = fetch_yearly_table(4, year, lat, lon, tz_value, tz_sign, no_cache)
+
+    if not sun_html or not moon_html or not twilight_html:
+        print("Failed to fetch one or more tables.")
+        return
+
+    # Determine which months to display
+    if month:
+        months = [month]
+    else:
+        months = list(range(1, 13))
+
+    for m in months:
+        display_month(year, m, sun_html, moon_html, twilight_html, colors)
 
 
 if __name__ == "__main__":

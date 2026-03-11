@@ -1,0 +1,33 @@
+June 2026                                                                                        
+Date    Sunset    Twi End    Moon    Moon Event                 Twi Start    Dark Sky    Rating  
+------  --------  ---------  ------  -------------------------  -----------  ----------  --------
+Jun  1  19:07     21:30      Up      Moonset 04:57 (next day)   01:21        Never Dark          
+Jun  2  19:08     21:32      Down    Moonrise 21:38             01:20        0:06                
+Jun  3  19:08     21:33      Down    Moonrise 22:14             01:19        0:41                
+Jun  4  19:09     21:35      Down    Moonrise 22:42             01:18        1:07        ★       
+Jun  5  19:10     21:36      Down    Moonrise 23:06             01:16        1:30        ★       
+Jun  6  19:11     21:38      Down    Moonrise 23:26             01:15        1:48        ★       
+Jun  7  19:11     21:39      Down    Moonrise 23:45             01:15        2:06        ★★      
+Jun  8  19:12     21:40      Down    Moonrise 00:03 (next day)  01:14        2:23        ★★      
+Jun  9  19:13     21:41      Down    Moonrise 00:22 (next day)  01:13        2:41        ★★      
+Jun 10  19:13     21:42      Down    Moonrise 00:44 (next day)  01:12        3:02        ★★★     
+Jun 11  19:14     21:43      Down    Moonrise 01:11 (next day)  01:12        3:28        ★★★     
+Jun 12  19:14     21:44      Down    Moonrise 01:47 (next day)  01:11        3:27        ★★★     
+Jun 13  19:15     21:45      Down    Moonrise 02:34 (next day)  01:11        3:26        ★★★     
+Jun 14  19:15     21:46      Down    Moonrise 03:37 (next day)  01:10        3:24        ★★★     
+Jun 15  19:16     21:47      Down    Moonrise 04:53 (next day)  01:10        3:23        ★★★     
+Jun 16  19:16     21:48      Down    Moonrise 06:16 (next day)  01:10        3:22        ★★★     
+Jun 17  19:16     21:48      Up      Moonset 21:54              01:10        3:16        ★★★     
+Jun 18  19:17     21:49      Up      Moonset 22:21              01:10        2:49        ★★      
+Jun 19  19:17     21:49      Up      Moonset 22:43              01:10        2:27        ★★      
+Jun 20  19:17     21:49      Up      Moonset 23:02              01:10        2:08        ★★      
+Jun 21  19:17     21:49      Up      Moonset 23:20              01:10        1:50        ★       
+Jun 22  19:18     21:49      Up      Moonset 23:38              01:11        1:33        ★       
+Jun 23  19:18     21:49      Up      Moonset 23:57              01:11        1:14        ★       
+Jun 24  19:18     21:49      Up      Moonset 00:20 (next day)   01:11        0:51                
+Jun 25  19:18     21:49      Up      Moonset 00:47 (next day)   01:12        0:25                
+Jun 26  19:18     21:49      Up      Moonset 01:20 (next day)   01:13        Never Dark          
+Jun 27  19:18     21:49      Up      Moonset 02:01 (next day)   01:14        Never Dark          
+Jun 28  19:18     21:48      Up      Moonset 02:52 (next day)   01:14        Never Dark          
+Jun 29  19:18     21:48      Up      Moonset 03:51 (next day)   01:15        Never Dark          
+Jun 30  19:18     21:47      Up      Moonset 04:55 (next day)   01:16        Never Dark          

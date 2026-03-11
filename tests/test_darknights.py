@@ -6,13 +6,40 @@ import pytest
 
 FIXTURES_DIR = Path(__file__).parent / 'fixtures'
 CACHE_DIR = Path('cache')
+LATLONG = '44.81,-66.95'
 
 
-def normalize_output(output):
-    """Remove cache status lines from output for comparison."""
+def run_darknights(*args):
+    """Run darknights.py with given arguments."""
+    result = subprocess.run(
+        ['uv', 'run', 'darknights.py', *args],
+        capture_output=True,
+        text=True,
+        timeout=120
+    )
+    return result
+
+
+def extract_table(output):
+    """Extract the astronomical data table from output (month title through last row)."""
     lines = output.split('\n')
-    filtered = [line for line in lines if not line.strip().startswith(('Using cached data', 'Downloading from USNO', 'Saved to cache'))]
-    return '\n'.join(filtered)
+    month_names = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ]
+    table_start = None
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if any(stripped.startswith(m) for m in month_names):
+            table_start = i
+            break
+    if table_start is None:
+        return ''
+    # Trim trailing blank lines
+    table_lines = lines[table_start:]
+    while table_lines and not table_lines[-1].strip():
+        table_lines.pop()
+    return '\n'.join(table_lines)
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -23,82 +50,66 @@ def cleanup_cache():
     yield
 
 
-def test_darknights_2026_jun_no_cache():
-    """Test darknights.py without cache."""
-    result = subprocess.run(
-        ['uv', 'run', 'darknights.py', '2026', 'jun', '--no-color', '--no-cache'],
-        capture_output=True,
-        text=True,
-        timeout=120
-    )
-    assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
+def test_no_cache_downloads_without_saving():
+    """--no-cache downloads fresh data, does not save, does not create cache dir."""
+    result = run_darknights(LATLONG, '2026', 'jun', '--no-color', '--no-cache')
+    assert result.returncode == 0, f"stderr: {result.stderr}"
 
-    # Verify cache status messages
-    assert '  Downloading from USNO...' in result.stdout
-    assert 'Saved to cache' not in result.stdout  # --no-cache shouldn't save
+    assert result.stdout.count('Downloading from USNO...') == 3
+    assert result.stdout.count('Saved to cache') == 0
+    assert result.stdout.count('Using cached data') == 0
+    assert not CACHE_DIR.exists(), "Cache directory should not be created with --no-cache"
 
-    # Verify output matches expected (ignoring cache status lines)
-    expected = (FIXTURES_DIR / 'expected_output_2026_jun.txt').read_text()
-    assert normalize_output(result.stdout) == normalize_output(expected)
+    expected = (FIXTURES_DIR / 'expected_table_2026_jun.txt').read_text().rstrip('\n')
+    assert extract_table(result.stdout) == expected
 
 
-def test_darknights_2026_jun_with_cache():
-    """Test darknights.py with cache (should create cache files)."""
-    result = subprocess.run(
-        ['uv', 'run', 'darknights.py', '2026', 'jun', '--no-color'],
-        capture_output=True,
-        text=True,
-        timeout=120
-    )
-    assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
+def test_first_run_downloads_and_caches():
+    """First run without --no-cache downloads all 3 tables and saves each to cache."""
+    result = run_darknights(LATLONG, '2026', 'jun', '--no-color')
+    assert result.returncode == 0, f"stderr: {result.stderr}"
 
-    # Verify cache status messages
-    assert '  Downloading from USNO...' in result.stdout
-    assert '  Saved to cache' in result.stdout
+    assert result.stdout.count('Downloading from USNO...') == 3
+    assert result.stdout.count('Saved to cache') == 3
+    assert result.stdout.count('Using cached data') == 0
 
-    # Verify output matches expected (ignoring cache status lines)
-    expected = (FIXTURES_DIR / 'expected_output_2026_jun.txt').read_text()
-    assert normalize_output(result.stdout) == normalize_output(expected)
-
-    # Verify cache files were created
     assert CACHE_DIR.exists(), "Cache directory should exist"
-    cache_files = list(CACHE_DIR.glob('*.html'))
-    assert len(cache_files) == 3, f"Expected 3 cache files, found {len(cache_files)}"
+    assert len(list(CACHE_DIR.glob('*.html'))) == 3, "Should have 3 cache files"
+
+    expected = (FIXTURES_DIR / 'expected_table_2026_jun.txt').read_text().rstrip('\n')
+    assert extract_table(result.stdout) == expected
 
 
-def test_darknights_2026_jun_with_cache_reuse():
-    """Test darknights.py with cache again (should reuse existing cache)."""
-    result = subprocess.run(
-        ['uv', 'run', 'darknights.py', '2026', 'jun', '--no-color'],
-        capture_output=True,
-        text=True,
-        timeout=120
-    )
-    assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
+def test_second_run_uses_cache():
+    """Second run reads all 3 tables from cache, no downloads."""
+    result = run_darknights(LATLONG, '2026', 'jun', '--no-color')
+    assert result.returncode == 0, f"stderr: {result.stderr}"
 
-    # Verify cache status messages
-    assert '  Using cached data' in result.stdout
-    assert 'Downloading from USNO' not in result.stdout
+    assert result.stdout.count('Using cached data') == 3
+    assert result.stdout.count('Downloading from USNO') == 0
+    assert result.stdout.count('Saved to cache') == 0
 
-    # Verify output matches expected (ignoring cache status lines)
-    expected = (FIXTURES_DIR / 'expected_output_2026_jun.txt').read_text()
-    assert normalize_output(result.stdout) == normalize_output(expected)
+    expected = (FIXTURES_DIR / 'expected_table_2026_jun.txt').read_text().rstrip('\n')
+    assert extract_table(result.stdout) == expected
 
 
-def test_darknights_2026_jun_no_cache_again():
-    """Test darknights.py without cache again (cache should be ignored)."""
-    result = subprocess.run(
-        ['uv', 'run', 'darknights.py', '2026', 'jun', '--no-color', '--no-cache'],
-        capture_output=True,
-        text=True,
-        timeout=120
-    )
-    assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
+def test_no_cache_bypasses_existing_cache():
+    """--no-cache bypasses existing cache without deleting it."""
+    cache_files_before = sorted(CACHE_DIR.glob('*.html'))
+    mtimes_before = {f: f.stat().st_mtime for f in cache_files_before}
 
-    # Verify cache status messages
-    assert '  Downloading from USNO...' in result.stdout
-    assert 'Using cached data' not in result.stdout  # --no-cache should bypass cache
+    result = run_darknights(LATLONG, '2026', 'jun', '--no-color', '--no-cache')
+    assert result.returncode == 0, f"stderr: {result.stderr}"
 
-    # Verify output matches expected (ignoring cache status lines)
-    expected = (FIXTURES_DIR / 'expected_output_2026_jun.txt').read_text()
-    assert normalize_output(result.stdout) == normalize_output(expected)
+    assert result.stdout.count('Downloading from USNO...') == 3
+    assert result.stdout.count('Using cached data') == 0
+    assert result.stdout.count('Saved to cache') == 0
+
+    # Cache files should still exist, unmodified
+    cache_files_after = sorted(CACHE_DIR.glob('*.html'))
+    assert cache_files_after == cache_files_before
+    for f in cache_files_after:
+        assert f.stat().st_mtime == mtimes_before[f], f"Cache file {f.name} was modified"
+
+    expected = (FIXTURES_DIR / 'expected_table_2026_jun.txt').read_text().rstrip('\n')
+    assert extract_table(result.stdout) == expected
