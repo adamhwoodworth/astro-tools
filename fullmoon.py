@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 from tabulate import tabulate
 from timezonefinder import TimezoneFinder
 
-from darknights import (
+from astro_common import (
     BG_DARK_BLUE,
     BG_LIGHT_BLUE,
     HEADER_BG,

@@ -9,7 +9,8 @@ logic keeps running on USNO's internally-consistent fixed-offset values.
 
 import subprocess
 
-from darknights import dst_delta_hours, format_moon_event, shift_time
+from astro_common import dst_delta_hours, shift_time
+from darknights import format_moon_event
 
 
 def run_cli(*args):
