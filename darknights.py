@@ -8,7 +8,7 @@ import requests
 import re
 import sys
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from tabulate import tabulate
 from timezonefinder import TimezoneFinder
@@ -146,6 +146,57 @@ def format_time(time_str):
         return f"{time_str[:2]}:{time_str[2:]}"
 
     return time_str
+
+
+def dst_delta_hours(tz_name, year, month, day, baseline_offset_hours):
+    """
+    Hours to add to a USNO time on a given date to convert it from the fetch
+    baseline offset to the date's actual local offset.
+
+    USNO returns the whole year in a single fixed offset (baseline_offset_hours,
+    the offset we requested). During the opposite-DST period the real local
+    clock differs from that baseline; this returns that difference (e.g. +1 for
+    a US Eastern summer date fetched against an EST baseline, 0 in winter).
+    Noon is used so the result is unaffected by the ~02:00 DST transition.
+    """
+    dt = datetime(year, month, day, 12, tzinfo=ZoneInfo(tz_name))
+    actual_offset = dt.utcoffset().total_seconds() / 3600
+    return round(actual_offset - baseline_offset_hours)
+
+
+def shift_time(time_str, delta_hours):
+    """
+    Shift an HH:MM clock string by whole hours, wrapping at midnight.
+
+    Applied at the display layer only. 'N/A' passes through unchanged.
+    """
+    if time_str == 'N/A':
+        return time_str
+    total = time_to_minutes(time_str) + delta_hours * 60
+    total %= 24 * 60
+    return f"{total // 60:02d}:{total % 60:02d}"
+
+
+def format_moon_event(event_type, event_time, is_next_day, delta_hours):
+    """
+    Build the moon-event display string, DST-shifting the time and recomputing
+    the "(next day)" label.
+
+    is_next_day is computed in the fetch baseline offset. Shifting the clock by
+    delta_hours can carry an event across midnight (e.g. a 23:10 same-day
+    moonrise becomes 00:10), which advances its calendar day relative to the
+    row date; the label must reflect the day it lands on after the shift.
+    """
+    if event_time == 'N/A':
+        return f"{event_type} N/A"
+
+    total = time_to_minutes(event_time) + delta_hours * 60
+    shifted = f"{(total % (24 * 60)) // 60:02d}:{(total % (24 * 60)) % 60:02d}"
+    day_offset = (1 if is_next_day else 0) + total // (24 * 60)
+
+    if day_offset >= 1:
+        return f"{event_type} {shifted} (next day)"
+    return f"{event_type} {shifted}"
 
 
 def time_to_minutes(time_str):
@@ -375,8 +426,15 @@ def get_days_in_month(year, month):
     return days[month]
 
 
-def display_month(year, month, sun_html, moon_html, twilight_html, colors):
-    """Parse and display astronomical data for a single month."""
+def display_month(year, month, sun_html, moon_html, twilight_html, colors,
+                  tz_name, baseline_offset_hours):
+    """Parse and display astronomical data for a single month.
+
+    USNO data comes back in a single fixed offset (baseline_offset_hours). All
+    state/event/duration logic runs on those unshifted values, where USNO's
+    day bucketing is internally consistent; only the displayed clock times are
+    converted to each date's actual local (DST-aware) offset.
+    """
     reset, bg_dark, bg_light, header_bg, header_fg, text_fg = colors
 
     sun_data = parse_table(sun_html, month)
@@ -416,19 +474,34 @@ def display_month(year, month, sun_html, moon_html, twilight_html, colors):
             twilight_end, moonrise, moonset, next_moon[0], next_moon[1]
         )
 
+        # Calculate dark sky length (offset-invariant; uses unshifted values)
+        dark_length = calc_dark_sky_length(
+            moon_state, event_info, twilight_end, next_morning_twilight
+        )
+
+        # DST-correct only the displayed clock times. Each value is shifted by
+        # the delta for the date it belongs to: the row's date for sunset and
+        # twilight end, the following date for the next morning's twilight and
+        # any "(next day)" moon event.
+        cur_delta = dst_delta_hours(tz_name, year, month, day, baseline_offset_hours)
+        next_date = datetime(year, month, day) + timedelta(days=1)
+        next_delta = dst_delta_hours(
+            tz_name, next_date.year, next_date.month, next_date.day,
+            baseline_offset_hours
+        )
+
+        sunset = shift_time(sunset, cur_delta)
+        twilight_end = shift_time(twilight_end, cur_delta)
+        next_morning_twilight = shift_time(next_morning_twilight, next_delta)
+
         # Build moon event column
         moon_event = ""
         if event_info:
             event_time, is_next_day, event_type = event_info
-            if is_next_day:
-                moon_event = f"{event_type} {event_time} (next day)"
-            else:
-                moon_event = f"{event_type} {event_time}"
-
-        # Calculate dark sky length
-        dark_length = calc_dark_sky_length(
-            moon_state, event_info, twilight_end, next_morning_twilight
-        )
+            moon_event = format_moon_event(
+                event_type, event_time, is_next_day,
+                next_delta if is_next_day else cur_delta
+            )
 
         # Calculate rating (stars for each hour of dark sky)
         if dark_length == "Never Dark" or dark_length == "N/A":
@@ -523,7 +596,8 @@ def main():
         months = list(range(1, 13))
 
     for m in months:
-        display_month(year, m, sun_html, moon_html, twilight_html, colors)
+        display_month(year, m, sun_html, moon_html, twilight_html, colors,
+                      tz_name, offset_hours)
 
 
 if __name__ == "__main__":

@@ -14,3 +14,9 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
 ]
+
+[tool.pytest.ini_options]
+# Put the repo root on sys.path so tests can `import darknights` regardless of
+# whether pytest is launched as `pytest` or `python -m pytest`.
+pythonpath = ["."]
+testpaths = ["tests"]
