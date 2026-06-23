@@ -1,0 +1,8 @@
+Date    Event            Moon    Sun      Diff  Rating
+------  ---------------  ------  -----  ------  --------
+Jun  1  Moonset@sunrise  05:04   04:45      19  ★★
+Jun 28  Moonrise@sunset  19:51   20:18      27  ★★
+Jun 29  Moonset@sunrise  03:52   04:45      53  ★
+Jun 29  Moonrise@sunset  20:37   20:18      19  ★★
+Jun 30  Moonset@sunrise  04:51   04:45       6  ★★★
+Jun 30  Moonrise@sunset  21:15   20:18      57  ★

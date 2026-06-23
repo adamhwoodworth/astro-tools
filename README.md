@@ -94,7 +94,66 @@ Feb 27  17:13     18:50      Up      Moonset 04:50 (next day)   04:30        Nev
 Feb 28  17:14     18:51      Up      Moonset 05:20 (next day)   04:28        Never Dark
 ```
 
-### Running Tests
+## fullmoon.py
+
+Finds prime "big moon near the horizon at golden hour" windows: every **moonrise within 61 minutes of sunset**, and every **moonset within 61 minutes of sunrise**. These are the nights to photograph a low, full-looking moon against a still-lit sky.
+
+Uses the same US Naval Observatory data, timezone auto-detection, and `cache/` directory as `darknights.py` (the two tools share any already-downloaded sun/moon tables).
+
+### Usage
+
+```bash
+uv run fullmoon.py <lat,long> [year] [month] [--no-color] [--no-cache]
+```
+
+The argument syntax is identical to `darknights.py`:
+
+```bash
+# Current year, all months
+uv run fullmoon.py '44.85, -66.98'
+
+# Specific year, all months
+uv run fullmoon.py 44.85,-66.98 2026
+
+# Specific year and month
+uv run fullmoon.py '44.85, -66.98' 2026 jun
+```
+
+Valid months: `jan`, `feb`, `mar`, `apr`, `may`, `jun`, `jul`, `aug`, `sep`, `oct`, `nov`, `dec`
+
+Options:
+- `--no-color`: Disable ANSI color codes in output
+- `--no-cache`: Bypass cache and fetch fresh data from USNO
+
+Each qualifying event is one row. A date can appear twice when both a morning moonset-near-sunrise and an evening moonrise-near-sunset qualify (common right around the full moon); the morning event is listed first. The `Diff` column is the gap in whole minutes between the moon event and its paired sun event. The `Rating` reflects how tight that gap is — within 31 minutes is the "best" tier:
+
+- `★★★` — within 15 minutes
+- `★★` — within 31 minutes
+- `★` — within 61 minutes
+
+### Example Output
+
+```
+$ uv run fullmoon.py 44.81,-66.95 2026 jun --no-color
+Finding moon/horizon windows for 2026...
+Location: 44.8100°N, 66.9500°W
+Timezone: America/New_York (UTC-5)
+
+Fetching sunrise/sunset table...
+Fetching moonrise/moonset table...
+
+Moonrise↔sunset & moonset↔sunrise windows · June 2026
+Date    Event            Moon    Sun      Diff  Rating
+------  ---------------  ------  -----  ------  --------
+Jun  1  Moonset@sunrise  05:04   04:45      19  ★★
+Jun 28  Moonrise@sunset  19:51   20:18      27  ★★
+Jun 29  Moonset@sunrise  03:52   04:45      53  ★
+Jun 29  Moonrise@sunset  20:37   20:18      19  ★★
+Jun 30  Moonset@sunrise  04:51   04:45       6  ★★★
+Jun 30  Moonrise@sunset  21:15   20:18      57  ★
+```
+
+## Running Tests
 
 ```bash
 uv run pytest -v
