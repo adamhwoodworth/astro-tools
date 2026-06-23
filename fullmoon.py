@@ -59,8 +59,9 @@ def qualifying_events_for_day(sunrise, sunset, moonrise, moonset):
 
     Returns a chronologically ordered list of
     (event_type, moon_time, sun_time, diff_minutes) tuples: the morning
-    Moonset@sunrise (if any) precedes the evening Moonrise@sunset. Times are the
-    raw USNO (fetch-baseline) clock strings; 'N/A' values are skipped.
+    "Moonset / Sunrise" (if any) precedes the evening "Moonrise / Sunset".
+    Times are the raw USNO (fetch-baseline) clock strings; 'N/A' values are
+    skipped.
     """
     events = []
 
@@ -68,13 +69,13 @@ def qualifying_events_for_day(sunrise, sunset, moonrise, moonset):
     if moonset != "N/A" and sunrise != "N/A":
         diff = abs(time_to_minutes(moonset) - time_to_minutes(sunrise))
         if diff <= MATCH_WINDOW:
-            events.append(("Moonset@sunrise", moonset, sunrise, diff))
+            events.append(("Moonset / Sunrise", moonset, sunrise, diff))
 
     # Evening: moonrise near sunset.
     if moonrise != "N/A" and sunset != "N/A":
         diff = abs(time_to_minutes(moonrise) - time_to_minutes(sunset))
         if diff <= MATCH_WINDOW:
-            events.append(("Moonrise@sunset", moonrise, sunset, diff))
+            events.append(("Moonrise / Sunset", moonrise, sunset, diff))
 
     return events
 

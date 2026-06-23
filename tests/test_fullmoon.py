@@ -84,21 +84,21 @@ def test_moonrise_near_sunset_qualifies():
     # Moonset (23:00) is nowhere near sunrise (06:00), so only the evening
     # moonrise-near-sunset event is returned.
     events = qualifying_events_for_day("06:00", "19:18", "19:37", "23:00")
-    assert events == [("Moonrise@sunset", "19:37", "19:18", 19)]
+    assert events == [("Moonrise / Sunset", "19:37", "19:18", 19)]
 
 
 def test_moonset_near_sunrise_qualifies():
     # Moonrise (12:00) is nowhere near sunset (19:18), so only the morning
     # moonset-near-sunrise event is returned.
     events = qualifying_events_for_day("03:45", "19:18", "12:00", "03:51")
-    assert events == [("Moonset@sunrise", "03:51", "03:45", 6)]
+    assert events == [("Moonset / Sunrise", "03:51", "03:45", 6)]
 
 
 def test_both_events_returned_morning_first():
     events = qualifying_events_for_day("03:45", "19:18", "19:37", "03:51")
     assert events == [
-        ("Moonset@sunrise", "03:51", "03:45", 6),
-        ("Moonrise@sunset", "19:37", "19:18", 19),
+        ("Moonset / Sunrise", "03:51", "03:45", 6),
+        ("Moonrise / Sunset", "19:37", "19:18", 19),
     ]
 
 
@@ -112,7 +112,7 @@ def test_na_moon_times_are_skipped():
 
 def test_boundary_61_minutes_is_included():
     events = qualifying_events_for_day("06:00", "19:18", "20:19", "23:00")
-    assert events == [("Moonrise@sunset", "20:19", "19:18", 61)]
+    assert events == [("Moonrise / Sunset", "20:19", "19:18", 61)]
 
 
 def test_boundary_62_minutes_is_excluded():
