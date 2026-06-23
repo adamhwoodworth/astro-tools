@@ -65,16 +65,16 @@ def qualifying_events_for_day(sunrise, sunset, moonrise, moonset):
     events = []
 
     # Morning: moonset near sunrise.
-    if moonset != 'N/A' and sunrise != 'N/A':
+    if moonset != "N/A" and sunrise != "N/A":
         diff = abs(time_to_minutes(moonset) - time_to_minutes(sunrise))
         if diff <= MATCH_WINDOW:
-            events.append(('Moonset@sunrise', moonset, sunrise, diff))
+            events.append(("Moonset@sunrise", moonset, sunrise, diff))
 
     # Evening: moonrise near sunset.
-    if moonrise != 'N/A' and sunset != 'N/A':
+    if moonrise != "N/A" and sunset != "N/A":
         diff = abs(time_to_minutes(moonrise) - time_to_minutes(sunset))
         if diff <= MATCH_WINDOW:
-            events.append(('Moonrise@sunset', moonrise, sunset, diff))
+            events.append(("Moonrise@sunset", moonrise, sunset, diff))
 
     return events
 
@@ -93,8 +93,8 @@ def build_rows(year, months, sun_html, moon_html, tz_name, baseline_offset_hours
         moon_data = parse_table(moon_html, month)
 
         for day in range(1, get_days_in_month(year, month) + 1):
-            sunrise, sunset = sun_data.get(day, ('N/A', 'N/A'))
-            moonrise, moonset = moon_data.get(day, ('N/A', 'N/A'))
+            sunrise, sunset = sun_data.get(day, ("N/A", "N/A"))
+            moonrise, moonset = moon_data.get(day, ("N/A", "N/A"))
 
             events = qualifying_events_for_day(sunrise, sunset, moonrise, moonset)
             if not events:
@@ -105,14 +105,16 @@ def build_rows(year, months, sun_html, moon_html, tz_name, baseline_offset_hours
             delta = dst_delta_hours(tz_name, year, month, day, baseline_offset_hours)
 
             for event_type, moon_time, sun_time, diff in events:
-                rows.append([
-                    f"{MONTH_NAMES[month][:3]} {day:2d}",
-                    event_type,
-                    shift_time(moon_time, delta),
-                    shift_time(sun_time, delta),
-                    str(diff),
-                    rating_for_diff(diff),
-                ])
+                rows.append(
+                    [
+                        f"{MONTH_NAMES[month][:3]} {day:2d}",
+                        event_type,
+                        shift_time(moon_time, delta),
+                        shift_time(sun_time, delta),
+                        str(diff),
+                        rating_for_diff(diff),
+                    ]
+                )
 
     return rows
 
@@ -122,15 +124,12 @@ def display(rows, title, colors):
     reset, bg_dark, bg_light, header_bg, header_fg, text_fg = colors
 
     if not rows:
-        print(
-            "No moonrise-near-sunset or moonset-near-sunrise events within "
-            f"{MATCH_WINDOW} minutes were found."
-        )
+        print(f"No moonrise-near-sunset or moonset-near-sunrise events within {MATCH_WINDOW} minutes were found.")
         return
 
     headers = ["Date", "Event", "Moon", "Sun", "Diff", "Rating"]
     table_str = tabulate(rows, headers=headers, tablefmt="simple")
-    lines = table_str.split('\n')
+    lines = table_str.split("\n")
 
     max_width = max(len(line) for line in lines + [title])
 

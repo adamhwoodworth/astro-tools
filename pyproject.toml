@@ -13,6 +13,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
+    "ruff>=0.15.18",
 ]
 
 [tool.pytest.ini_options]
@@ -20,3 +21,13 @@ dev = [
 # whether pytest is launched as `pytest` or `python -m pytest`.
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# pyflakes (F) + pycodestyle errors (E) + import sorting (I).
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "double"

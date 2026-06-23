@@ -4,36 +4,58 @@ Fetch yearly astronomical tables from US Naval Observatory and display
 sunrise/sunset, moonrise/moonset, and astronomical twilight data.
 """
 
-import requests
+import hashlib
 import re
 import sys
-import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import requests
 from tabulate import tabulate
 from timezonefinder import TimezoneFinder
-from zoneinfo import ZoneInfo
 
 # ANSI color codes for blue astro palette
 RESET = "\033[0m"
-BG_DARK_BLUE = "\033[48;5;17m"    # Dark navy blue
+BG_DARK_BLUE = "\033[48;5;17m"  # Dark navy blue
 BG_LIGHT_BLUE = "\033[48;5;18m"  # Slightly lighter blue
-HEADER_BG = "\033[48;5;19m"       # Header blue
-HEADER_FG = "\033[97m"           # Bright white text
-TEXT_FG = "\033[38;5;153m"       # Light blue text
+HEADER_BG = "\033[48;5;19m"  # Header blue
+HEADER_FG = "\033[97m"  # Bright white text
+TEXT_FG = "\033[38;5;153m"  # Light blue text
 
 # Configuration
 CACHE_DIR = Path("cache")
 
 # Month abbreviation to number mapping
 MONTH_ABBREVS = {
-    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-    'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
 }
 
 MONTH_NAMES = [
-    '', 'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    "",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
 ]
 
 
@@ -102,9 +124,9 @@ def parse_table(html_text, month):
     results = {}
 
     # Find all data rows - they start with a 2-digit day number
-    pattern = r'^(\d{2})\s{2}(.+)$'
+    pattern = r"^(\d{2})\s{2}(.+)$"
 
-    for line in html_text.split('\n'):
+    for line in html_text.split("\n"):
         line = line.strip()
         match = re.match(pattern, line)
         if not match:
@@ -118,8 +140,8 @@ def parse_table(html_text, month):
         month_start = (month - 1) * 11
 
         if month_start + 9 <= len(data):
-            rise = data[month_start:month_start + 4].strip()
-            set_time = data[month_start + 5:month_start + 9].strip()
+            rise = data[month_start : month_start + 4].strip()
+            set_time = data[month_start + 5 : month_start + 9].strip()
 
             rise = format_time(rise)
             set_time = format_time(set_time)
@@ -139,8 +161,8 @@ def format_time(time_str):
     Returns:
         Formatted time string or N/A
     """
-    if not time_str or time_str == '----' or not time_str.isdigit():
-        return 'N/A'
+    if not time_str or time_str == "----" or not time_str.isdigit():
+        return "N/A"
 
     if len(time_str) == 4:
         return f"{time_str[:2]}:{time_str[2:]}"
@@ -170,7 +192,7 @@ def shift_time(time_str, delta_hours):
 
     Applied at the display layer only. 'N/A' passes through unchanged.
     """
-    if time_str == 'N/A':
+    if time_str == "N/A":
         return time_str
     total = time_to_minutes(time_str) + delta_hours * 60
     total %= 24 * 60
@@ -187,7 +209,7 @@ def format_moon_event(event_type, event_time, is_next_day, delta_hours):
     moonrise becomes 00:10), which advances its calendar day relative to the
     row date; the label must reflect the day it lands on after the shift.
     """
-    if event_time == 'N/A':
+    if event_time == "N/A":
         return f"{event_type} N/A"
 
     total = time_to_minutes(event_time) + delta_hours * 60
@@ -201,9 +223,9 @@ def format_moon_event(event_type, event_time, is_next_day, delta_hours):
 
 def time_to_minutes(time_str):
     """Convert HH:MM time string to minutes since midnight."""
-    if time_str == 'N/A':
+    if time_str == "N/A":
         return None
-    hours, mins = map(int, time_str.split(':'))
+    hours, mins = map(int, time_str.split(":"))
     return hours * 60 + mins
 
 
@@ -236,7 +258,7 @@ def calc_dark_sky_length(moon_state, event_info, twilight_end, next_morning_twil
     # Next morning twilight is on the next day, so add 24 hours
     next_twi_mins_adjusted = next_twi_mins + 24 * 60
 
-    if moon_state == 'Down':
+    if moon_state == "Down":
         # Dark from twilight end until moonrise or next twilight, whichever is earlier
         if event_info:
             event_time, is_next_day, event_type = event_info
@@ -283,7 +305,7 @@ def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_
     """
     ref_mins = time_to_minutes(ref_time)
     if ref_mins is None:
-        return ('Unknown', None)
+        return ("Unknown", None)
 
     moonrise_mins = time_to_minutes(moonrise)
     moonset_mins = time_to_minutes(moonset)
@@ -298,66 +320,66 @@ def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_
         if moonrise_mins < moonset_mins:
             # Normal day: rise then set
             if moonrise_mins <= ref_mins < moonset_mins:
-                return ('Up', (moonset, False, 'Moonset'))
+                return ("Up", (moonset, False, "Moonset"))
             elif ref_mins < moonrise_mins:
                 # ref_time before moonrise - moon is down, rises later tonight
-                return ('Down', (moonrise, False, 'Moonrise'))
+                return ("Down", (moonrise, False, "Moonrise"))
             else:
                 # ref_time after moonset - moon is down, rises next day
                 if next_moonrise_mins is not None:
-                    return ('Down', (next_day_moonrise, True, 'Moonrise'))
-                return ('Down', ('N/A', False, 'Moonrise'))
+                    return ("Down", (next_day_moonrise, True, "Moonrise"))
+                return ("Down", ("N/A", False, "Moonrise"))
         else:
             # Moonset before moonrise (moon was up from previous day)
             if ref_mins < moonset_mins:
-                return ('Up', (moonset, False, 'Moonset'))
+                return ("Up", (moonset, False, "Moonset"))
             elif ref_mins >= moonrise_mins:
                 # Moon rose again, find when it sets (next day)
                 if next_moonset_mins is not None:
-                    return ('Up', (next_day_moonset, True, 'Moonset'))
-                return ('Up', ('N/A', False, 'Moonset'))
+                    return ("Up", (next_day_moonset, True, "Moonset"))
+                return ("Up", ("N/A", False, "Moonset"))
             else:
                 # Between moonset and moonrise - moon is down
-                return ('Down', (moonrise, False, 'Moonrise'))
+                return ("Down", (moonrise, False, "Moonrise"))
 
     elif moonrise_mins is not None and moonset_mins is None:
         # Moonrise but no moonset today - moon sets next day
         if moonrise_mins <= ref_mins:
             if next_moonset_mins is not None:
-                return ('Up', (next_day_moonset, True, 'Moonset'))
-            return ('Up', ('N/A', False, 'Moonset'))
+                return ("Up", (next_day_moonset, True, "Moonset"))
+            return ("Up", ("N/A", False, "Moonset"))
         else:
             # Moon rises after ref_time
-            return ('Down', (moonrise, False, 'Moonrise'))
+            return ("Down", (moonrise, False, "Moonrise"))
 
     elif moonrise_mins is None and moonset_mins is not None:
         # Moonset but no moonrise today - moon was up from previous day
         if ref_mins < moonset_mins:
-            return ('Up', (moonset, False, 'Moonset'))
+            return ("Up", (moonset, False, "Moonset"))
         else:
             # Moon already set, rises next day
             if next_moonrise_mins is not None:
-                return ('Down', (next_day_moonrise, True, 'Moonrise'))
-            return ('Down', ('N/A', False, 'Moonrise'))
+                return ("Down", (next_day_moonrise, True, "Moonrise"))
+            return ("Down", ("N/A", False, "Moonrise"))
 
     else:
         # No moonrise or moonset - moon either up or down all day
         # Check next day to infer
         if next_moonrise_mins is not None and next_moonset_mins is not None:
             if next_moonrise_mins < next_moonset_mins:
-                return ('Down', (next_day_moonrise, True, 'Moonrise'))
+                return ("Down", (next_day_moonrise, True, "Moonrise"))
             else:
-                return ('Up', (next_day_moonset, True, 'Moonset'))
-        return ('Unknown', None)
+                return ("Up", (next_day_moonset, True, "Moonset"))
+        return ("Unknown", None)
 
 
 def parse_latlong(arg):
     """Parse lat/long from a single argument string (e.g., '44.85, -66.98' or '44.85,-66.98')."""
-    if ',' not in arg:
+    if "," not in arg:
         print("Error: lat,long must be separated by a comma", file=sys.stderr)
         sys.exit(1)
 
-    parts = arg.split(',', 1)
+    parts = arg.split(",", 1)
     try:
         return float(parts[0].strip()), float(parts[1].strip())
     except ValueError:
@@ -368,18 +390,21 @@ def parse_latlong(arg):
 def parse_args():
     """Parse and validate command line arguments."""
     # Check for optional flags
-    no_color = '--no-color' in sys.argv
+    no_color = "--no-color" in sys.argv
     if no_color:
-        sys.argv.remove('--no-color')
+        sys.argv.remove("--no-color")
 
-    no_cache = '--no-cache' in sys.argv
+    no_cache = "--no-cache" in sys.argv
     if no_cache:
-        sys.argv.remove('--no-cache')
+        sys.argv.remove("--no-cache")
 
     args = sys.argv[1:]
 
     if not args:
-        print(f"Usage: {sys.argv[0]} <lat,long> [year] [month] [--no-color] [--no-cache]", file=sys.stderr)
+        print(
+            f"Usage: {sys.argv[0]} <lat,long> [year] [month] [--no-color] [--no-cache]",
+            file=sys.stderr,
+        )
         print("  lat,long:  latitude,longitude from Google Maps", file=sys.stderr)
         print("             e.g., '44.85, -66.98' or 44.85,-66.98", file=sys.stderr)
         print("  year:      4-digit year (default: current year)", file=sys.stderr)
@@ -404,7 +429,10 @@ def parse_args():
     if len(remaining) >= 2:
         month_str = remaining[1].lower()
         if month_str not in MONTH_ABBREVS:
-            print(f"Error: month must be 3-letter abbreviation, got '{month_str}'", file=sys.stderr)
+            print(
+                f"Error: month must be 3-letter abbreviation, got '{month_str}'",
+                file=sys.stderr,
+            )
             print(f"Valid months: {', '.join(MONTH_ABBREVS.keys())}", file=sys.stderr)
             sys.exit(1)
         month = MONTH_ABBREVS[month_str]
@@ -418,16 +446,34 @@ def parse_args():
 def get_days_in_month(year, month):
     """Return the number of days in a given month/year."""
     days = {
-        1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
-        7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31
+        1: 31,
+        2: 28,
+        3: 31,
+        4: 30,
+        5: 31,
+        6: 30,
+        7: 31,
+        8: 31,
+        9: 30,
+        10: 31,
+        11: 30,
+        12: 31,
     }
     if month == 2 and (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
         days[2] = 29
     return days[month]
 
 
-def display_month(year, month, sun_html, moon_html, twilight_html, colors,
-                  tz_name, baseline_offset_hours):
+def display_month(
+    year,
+    month,
+    sun_html,
+    moon_html,
+    twilight_html,
+    colors,
+    tz_name,
+    baseline_offset_hours,
+):
     """Parse and display astronomical data for a single month.
 
     USNO data comes back in a single fixed offset (baseline_offset_hours). All
@@ -451,18 +497,18 @@ def display_month(year, month, sun_html, moon_html, twilight_html, colors,
 
     rows = []
     for day in range(1, num_days + 1):
-        sun = sun_data.get(day, ('N/A', 'N/A'))
-        moon = moon_data.get(day, ('N/A', 'N/A'))
-        twilight = twilight_data.get(day, ('N/A', 'N/A'))
+        sun = sun_data.get(day, ("N/A", "N/A"))
+        moon = moon_data.get(day, ("N/A", "N/A"))
+        twilight = twilight_data.get(day, ("N/A", "N/A"))
 
         # Get next day's data
         next_day = day + 1
         if next_day > num_days:
-            next_moon = next_moon_data.get(1, ('N/A', 'N/A'))
-            next_twilight = next_twilight_data.get(1, ('N/A', 'N/A'))
+            next_moon = next_moon_data.get(1, ("N/A", "N/A"))
+            next_twilight = next_twilight_data.get(1, ("N/A", "N/A"))
         else:
-            next_moon = moon_data.get(next_day, ('N/A', 'N/A'))
-            next_twilight = twilight_data.get(next_day, ('N/A', 'N/A'))
+            next_moon = moon_data.get(next_day, ("N/A", "N/A"))
+            next_twilight = twilight_data.get(next_day, ("N/A", "N/A"))
 
         sunset = sun[1]
         moonrise = moon[0]
@@ -470,14 +516,10 @@ def display_month(year, month, sun_html, moon_html, twilight_html, colors,
         twilight_end = twilight[1]
         next_morning_twilight = next_twilight[0]
 
-        moon_state, event_info = get_moon_state_at_time(
-            twilight_end, moonrise, moonset, next_moon[0], next_moon[1]
-        )
+        moon_state, event_info = get_moon_state_at_time(twilight_end, moonrise, moonset, next_moon[0], next_moon[1])
 
         # Calculate dark sky length (offset-invariant; uses unshifted values)
-        dark_length = calc_dark_sky_length(
-            moon_state, event_info, twilight_end, next_morning_twilight
-        )
+        dark_length = calc_dark_sky_length(moon_state, event_info, twilight_end, next_morning_twilight)
 
         # DST-correct only the displayed clock times. Each value is shifted by
         # the delta for the date it belongs to: the row's date for sunset and
@@ -486,8 +528,11 @@ def display_month(year, month, sun_html, moon_html, twilight_html, colors,
         cur_delta = dst_delta_hours(tz_name, year, month, day, baseline_offset_hours)
         next_date = datetime(year, month, day) + timedelta(days=1)
         next_delta = dst_delta_hours(
-            tz_name, next_date.year, next_date.month, next_date.day,
-            baseline_offset_hours
+            tz_name,
+            next_date.year,
+            next_date.month,
+            next_date.day,
+            baseline_offset_hours,
         )
 
         sunset = shift_time(sunset, cur_delta)
@@ -499,33 +544,46 @@ def display_month(year, month, sun_html, moon_html, twilight_html, colors,
         if event_info:
             event_time, is_next_day, event_type = event_info
             moon_event = format_moon_event(
-                event_type, event_time, is_next_day,
-                next_delta if is_next_day else cur_delta
+                event_type,
+                event_time,
+                is_next_day,
+                next_delta if is_next_day else cur_delta,
             )
 
         # Calculate rating (stars for each hour of dark sky)
         if dark_length == "Never Dark" or dark_length == "N/A":
             rating = ""
         else:
-            hours = int(dark_length.split(':')[0])
+            hours = int(dark_length.split(":")[0])
             rating = "\u2605" * hours
 
-        rows.append([
-            f"{MONTH_NAMES[month][:3]} {day:2d}",
-            sunset,
-            twilight_end,
-            moon_state,
-            moon_event,
-            next_morning_twilight,
-            dark_length,
-            rating
-        ])
+        rows.append(
+            [
+                f"{MONTH_NAMES[month][:3]} {day:2d}",
+                sunset,
+                twilight_end,
+                moon_state,
+                moon_event,
+                next_morning_twilight,
+                dark_length,
+                rating,
+            ]
+        )
 
-    headers = ["Date", "Sunset", "Twi End", "Moon", "Moon Event", "Twi Start", "Dark Sky", "Rating"]
+    headers = [
+        "Date",
+        "Sunset",
+        "Twi End",
+        "Moon",
+        "Moon Event",
+        "Twi Start",
+        "Dark Sky",
+        "Rating",
+    ]
 
     # Get column widths from tabulate
     table_str = tabulate(rows, headers=headers, tablefmt="simple")
-    lines = table_str.split('\n')
+    lines = table_str.split("\n")
 
     # Find max width for full-width coloring
     max_width = max(len(line) for line in lines)
@@ -596,8 +654,7 @@ def main():
         months = list(range(1, 13))
 
     for m in months:
-        display_month(year, m, sun_html, moon_html, twilight_html, colors,
-                      tz_name, offset_hours)
+        display_month(year, m, sun_html, moon_html, twilight_html, colors, tz_name, offset_hours)
 
 
 if __name__ == "__main__":

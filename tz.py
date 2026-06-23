@@ -1,12 +1,15 @@
 import sys
-from timezonefinder import TimezoneFinder
-from zoneinfo import ZoneInfo
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
+from timezonefinder import TimezoneFinder
 
 if len(sys.argv) != 2:
     print(f"Usage: {sys.argv[0]} 'lat, long'", file=sys.stderr)
-    print("  Example: uv run tz.py '44.82611003049705, -66.93291767410354'", file=sys.stderr)
+    print(
+        "  Example: uv run tz.py '44.82611003049705, -66.93291767410354'",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 parts = sys.argv[1].split(",")
