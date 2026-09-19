@@ -10,7 +10,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from darknights import Night
-from nightplan import months_in_range, nights_between, plan_rows
+from nightplan import months_in_range, nights_between, plan_rows, years_to_fetch
 from tides import TideEvent
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -82,6 +82,32 @@ def test_nights_between_spans_a_month_end_and_keeps_only_the_range():
     assert nights[0].moon_event == "Moonset 04:51 (next day)"
 
 
+def test_nights_between_reads_december_31s_next_day_from_the_following_year():
+    tables = [(FIXTURES_DIR / f"usno_2026_{name}.html").read_text() for name in ("sun", "moon", "twilight")]
+    next_year = [None] + [(FIXTURES_DIR / f"usno_2027_{name}.html").read_text() for name in ("moon", "twilight")]
+    tables_by_year = {2026: (tables, -5.0), 2027: (next_year, -5.0)}
+
+    nights = nights_between(date(2026, 12, 31), date(2026, 12, 31), tables_by_year, "America/New_York")
+
+    # Hand-read from the USNO tables; see test_night_rows.py.
+    assert (nights[0].moon_event, nights[0].dark_length) == ("Moonrise 01:25 (next day)", "7:42")
+
+
+# --- years_to_fetch ----------------------------------------------------------
+
+
+def test_range_within_a_year_fetches_that_years_three_tables():
+    assert years_to_fetch(date(2026, 6, 4), date(2026, 6, 10)) == [(2026, (0, 1, 4))]
+
+
+def test_range_ending_december_31_also_fetches_next_years_moon_and_twilight():
+    assert years_to_fetch(date(2026, 12, 30), date(2026, 12, 31)) == [(2026, (0, 1, 4)), (2027, (1, 4))]
+
+
+def test_range_running_into_january_fetches_both_years_in_full():
+    assert years_to_fetch(date(2026, 12, 31), date(2027, 1, 1)) == [(2026, (0, 1, 4)), (2027, (0, 1, 4))]
+
+
 # --- integration: live APIs --------------------------------------------------
 
 
@@ -112,3 +138,10 @@ def test_range_across_new_year_shows_both_days():
     assert result.returncode == 0, f"stderr: {result.stderr}"
     dated = [line[:10] for line in result.stdout.split("\n") if line[:3] in ("Thu", "Fri")]
     assert dated == ["Thu Dec 31", "Fri Jan 01"]
+
+
+def test_december_31_night_uses_next_years_moonrise():
+    result = run_nightplan("44.81,-66.95", "2026", "dec", "31")
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    day = next(line for line in result.stdout.split("\n") if line.startswith("Thu Dec 31"))
+    assert "Moonrise 01:25 (next day)" in day and "7:42" in day

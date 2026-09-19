@@ -26,6 +26,9 @@ from astro_common import (
 # USNO tables a night is built from: sunrise/sunset, moonrise/moonset, astronomical twilight
 NIGHT_TABLES = (0, 1, 4)
 
+# The following year's tables that the night of December 31 needs: moon and twilight
+NEXT_YEAR_TABLES = (1, 4)
+
 NIGHT_HEADERS = ["Sunset", "Twi End", "Moon", "Moon Event", "Twi Start", "Dark Sky", "Rating"]
 
 
@@ -206,8 +209,12 @@ class Night(NamedTuple):
     rating: str
 
 
-def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baseline_offset_hours):
+def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baseline_offset_hours, next_year_tables=None):
     """One Night per day of a month, from the three USNO yearly tables.
+
+    The last night of December runs into January 1 of the following year, so
+    it needs next_year_tables: that year's (moon_html, twilight_html). Without
+    them its next-day values are unknown ("N/A").
 
     USNO data comes back in a single fixed offset (baseline_offset_hours). All
     state/event/duration logic runs on those unshifted values, where USNO's
@@ -218,9 +225,14 @@ def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baselin
     moon_data = parse_table(moon_html, month)
     twilight_data = parse_table(twilight_html, month)
 
-    next_month = month + 1 if month < 12 else 1
-    next_moon_data = parse_table(moon_html, next_month)
-    next_twilight_data = parse_table(twilight_html, next_month)
+    if month < 12:
+        next_moon_data = parse_table(moon_html, month + 1)
+        next_twilight_data = parse_table(twilight_html, month + 1)
+    elif next_year_tables:
+        next_moon_data = parse_table(next_year_tables[0], 1)
+        next_twilight_data = parse_table(next_year_tables[1], 1)
+    else:
+        next_moon_data = next_twilight_data = {}
 
     num_days = get_days_in_month(year, month)
 
@@ -328,8 +340,16 @@ def main():
         print("Failed to fetch one or more tables.")
         return
 
+    # The night of December 31 ends on January 1 of the following year.
+    next_year_tables = None
+    if month in (None, 12):
+        print(f"Fetching {year + 1} tables for the night of December 31...")
+        next_offset_hours = standard_offset_hours(tz_name, year + 1)
+        next_year_tables = fetch_tables(NEXT_YEAR_TABLES, year + 1, lat, lon, next_offset_hours, no_cache)
+
     for m in [month] if month else range(1, 13):
-        display_month(year, m, night_rows(year, m, *tables, tz_name, offset_hours), color_palette(no_color))
+        nights = night_rows(year, m, *tables, tz_name, offset_hours, next_year_tables)
+        display_month(year, m, nights, color_palette(no_color))
 
 
 if __name__ == "__main__":

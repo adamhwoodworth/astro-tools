@@ -115,3 +115,12 @@ def test_half_hour_zone_times_are_not_shifted_by_30_minutes():
     assert "Timezone: America/St_Johns (UTC-3:30)" in result.stdout
     jan_1 = next(line for line in result.stdout.split("\n") if line.startswith("Jan  1"))
     assert jan_1.split()[2] == "16:20"
+
+
+def test_december_31_uses_next_years_tables():
+    # On 2026-12-31 the moon next rises at 01:25 on 2027-01-01 (7:42 of dark
+    # sky); 2026-01-01's moonrise, a year too early, is 13:44.
+    result = run_cli("44.81,-66.95", "2026", "dec", "--no-color")
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    dec_31 = next(line for line in result.stdout.split("\n") if line.startswith("Dec 31"))
+    assert "Moonrise 01:25 (next day)" in dec_31 and "7:42" in dec_31
