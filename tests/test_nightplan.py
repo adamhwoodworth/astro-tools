@@ -9,9 +9,9 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from darknights import Night
+from astro_tools.nights import Night
+from astro_tools.tides import TideEvent
 from nightplan import plan_rows
-from tides import TideEvent
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 NEW_YORK = ZoneInfo("America/New_York")

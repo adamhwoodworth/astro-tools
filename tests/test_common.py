@@ -1,4 +1,4 @@
-"""Unit tests for the shared astro_common library.
+"""Unit tests for the shared astro_tools.common library.
 
 These pure helpers underpin both darknights.py and fullmoon.py; before the
 shared library was extracted they were only exercised indirectly through the
@@ -9,7 +9,7 @@ from datetime import date
 
 import pytest
 
-from astro_common import (
+from astro_tools.common import (
     color_palette,
     format_time,
     format_utc_offset,

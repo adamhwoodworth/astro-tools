@@ -1,7 +1,7 @@
 [project]
-name = "moon-dark-nights"
+name = "astro-tools"
 version = "0.1.0"
-description = "Add your description here"
+description = "Astrophotography and night sky observation planning tools"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -10,6 +10,10 @@ dependencies = [
     "timezonefinder[numba]>=8.2.1",
 ]
 
+[build-system]
+requires = ["uv_build>=0.11.29,<0.12.0"]
+build-backend = "uv_build"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
@@ -17,8 +21,9 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-# Put the repo root on sys.path so tests can `import darknights` regardless of
-# whether pytest is launched as `pytest` or `python -m pytest`.
+# Put the repo root on sys.path so tests can import the scripts (`import tides`)
+# regardless of whether pytest is launched as `pytest` or `python -m pytest`.
+# The astro_tools library itself is installed into the venv by uv.
 pythonpath = ["."]
 testpaths = ["tests"]
 

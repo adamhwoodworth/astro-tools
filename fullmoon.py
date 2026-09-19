@@ -5,12 +5,12 @@ moonrises that occur within 61 minutes of sunset, and moonsets within 61
 minutes of sunrise. Each event is rated by how tightly the moon event brackets
 its paired sun event, so the best "big moon at golden hour" nights stand out.
 
-Reuses darknights.py's fetch/parse/timezone helpers, so the cache directory,
+Reuses the astro_tools fetch/parse/timezone helpers, so the cache directory,
 filenames, and --no-cache behavior are identical (and the two tools share any
 already-downloaded sun/moon tables).
 """
 
-from astro_common import (
+from astro_tools.common import (
     MONTH_NAMES,
     color_palette,
     dst_delta_hours,

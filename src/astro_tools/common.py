@@ -3,7 +3,7 @@ Shared building blocks for the astro tools.
 
 Fetching and caching the US Naval Observatory yearly rise/set tables, parsing
 them, time/DST helpers, command-line argument parsing, and the colored table
-output. Imported by darknights.py, fullmoon.py, tides.py, and nightplan.py.
+output. Imported by the scripts and by the other astro_tools modules.
 """
 
 import argparse

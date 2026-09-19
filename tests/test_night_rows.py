@@ -1,4 +1,4 @@
-"""Unit tests for building nights in darknights.py from saved USNO tables.
+"""Unit tests for building nights in astro_tools.nights from saved USNO tables.
 
 The tables in fixtures/ are the 2026 sun, moon, and twilight responses for
 44.81,-66.95; expectations are rows of the verified expected_table_2026_jun.txt.
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from darknights import Night, fetch_night_tables, months_in_range, night_rows, nights_between, years_to_fetch
+from astro_tools.nights import Night, fetch_night_tables, months_in_range, night_rows, nights_between, years_to_fetch
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -119,7 +119,7 @@ def test_range_running_into_january_fetches_both_years_in_full():
 
 
 def fake_fetch(failing_year=None):
-    """Stands in for astro_common.fetch_tables: table names instead of downloads."""
+    """Stands in for astro_tools.common.fetch_tables: table names instead of downloads."""
 
     def fetch(tasks, year, lat, lon, offset_hours, no_cache=False):
         if year == failing_year:

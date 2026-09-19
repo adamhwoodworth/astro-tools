@@ -11,14 +11,13 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from tides import (
+from astro_tools.tides import (
     Station,
     TideError,
     TideEvent,
     build_rows,
     cache_is_fresh,
     date_chunks,
-    display,
     events_in_window,
     find_station,
     get_json,
@@ -31,9 +30,9 @@ from tides import (
     normalise_chs_stations,
     normalise_noaa_stations,
     parse_chs_predictions,
-    parse_cli,
     parse_noaa_predictions,
 )
+from tides import display, parse_cli
 
 NOAA_STATIONS_JSON = {
     "count": 2,

@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-from astro_common import (
+from astro_tools.common import (
     color_palette,
     date_range_parser,
     location_timezone,
@@ -23,8 +23,8 @@ from astro_common import (
     print_table,
     resolve_date_range,
 )
-from darknights import NIGHT_HEADERS, fetch_night_tables, nights_between
-from tides import TideError, add_tide_options, build_rows, header_lines, tide_events_for
+from astro_tools.nights import NIGHT_HEADERS, fetch_night_tables, nights_between
+from astro_tools.tides import TideError, add_tide_options, build_rows, header_lines, tide_events_for
 
 HEADERS = ["Date", "Time", "Tide", "Height", *NIGHT_HEADERS]
 

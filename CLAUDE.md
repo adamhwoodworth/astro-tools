@@ -2,6 +2,13 @@
 
 See README.md for usage and examples.
 
+## Layout
+
+- The four scripts at the repo root (`darknights.py`, `fullmoon.py`, `tides.py`, `nightplan.py`) only parse arguments, call the library, and print
+- Shared code lives in the `astro_tools` package under `src/astro_tools/` (src layout, `uv_build` backend): `common.py` (CLI, dates, colored tables, USNO fetch), `nights.py`, `tides.py`
+- Scripts never import from each other; code needed by two scripts goes in `astro_tools`
+- `uv sync` / `uv run` install the package into `.venv` in editable mode, so `import astro_tools` works without path tweaks
+
 ## Dev Notes
 
 - Always use `uv run` to run scripts and tests
@@ -13,4 +20,4 @@ See README.md for usage and examples.
 - USNO API results are cached in `cache/` (MD5 hash of request parameters)
 - `tides.py` caches the merged NOAA/CHS station list in `cache/tides_stations.json` (30-day expiry, `--refresh` to force); tide predictions are never cached
 - `docs/superpowers/specs/2026-09-19-tides-script-design.md` holds the verified NOAA/CHS API notes behind `tides.py`
-- `nightplan.py` combines `tides.py` and `darknights.py`; it imports `fetch_night_tables` and `nights_between` from `darknights.py` and `tide_events_for` from `tides.py`, and shared CLI/date/table code lives in `astro_common.py`
+- `nightplan.py` combines `tides.py` and `darknights.py`
