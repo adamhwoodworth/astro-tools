@@ -4,6 +4,7 @@ Fetch yearly astronomical tables from US Naval Observatory and display
 sunrise/sunset, moonrise/moonset, and astronomical twilight data.
 """
 
+import sys
 from datetime import date, datetime, timedelta
 from typing import NamedTuple
 
@@ -18,6 +19,7 @@ from astro_common import (
     parse_args,
     parse_table,
     print_table,
+    resolve_date_range,
     shift_time,
     standard_offset_hours,
     time_to_minutes,
@@ -314,6 +316,68 @@ def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baselin
     return nights
 
 
+def months_in_range(first_day, last_day):
+    """The (year, month) pairs touched by first_day..last_day, in order."""
+    months = []
+    year, month = first_day.year, first_day.month
+    while (year, month) <= (last_day.year, last_day.month):
+        months.append((year, month))
+        year, month = (year, month + 1) if month < 12 else (year + 1, 1)
+    return months
+
+
+def years_to_fetch(first_day, last_day):
+    """
+    The (year, USNO tasks) to fetch for first_day..last_day.
+
+    Every year in the range needs all three night tables. A range ending on
+    December 31 also needs the following year's moon and twilight tables,
+    because that night ends on January 1.
+    """
+    years = [(year, NIGHT_TABLES) for year in range(first_day.year, last_day.year + 1)]
+    if (last_day.month, last_day.day) == (12, 31):
+        years.append((last_day.year + 1, NEXT_YEAR_TABLES))
+    return years
+
+
+def nights_between(first_day, last_day, tables_by_year, tz_name):
+    """
+    Nights for first_day..last_day.
+
+    tables_by_year maps a year to ([sun, moon, twilight], offset_hours): its
+    USNO tables and the fixed offset they were fetched in. The year after a
+    December 31 in the range may hold only moon and twilight (sun is None).
+    """
+    nights = []
+    for year, month in months_in_range(first_day, last_day):
+        tables, offset_hours = tables_by_year[year]
+        next_year = tables_by_year.get(year + 1)
+        next_year_tables = next_year[0][1:] if next_year else None
+        nights += night_rows(year, month, *tables, tz_name, offset_hours, next_year_tables)
+    return [night for night in nights if first_day <= night.date <= last_day]
+
+
+def fetch_night_tables(first_day, last_day, lat, lon, tz_name, no_cache=False, fetch=fetch_tables):
+    """
+    Fetch every USNO table needed for the nights first_day..last_day.
+
+    Returns tables_by_year for nights_between. Exits with an error if any
+    table cannot be fetched.
+    """
+    tables_by_year = {}
+    for year, tasks in years_to_fetch(first_day, last_day):
+        if tasks == NEXT_YEAR_TABLES:
+            print(f"Fetching {year} tables for the night of December 31...")
+        offset_hours = standard_offset_hours(tz_name, year)
+        tables = fetch(tasks, year, lat, lon, offset_hours, no_cache)
+        if tables is None:
+            print(f"Error: failed to fetch one or more USNO tables for {year}.", file=sys.stderr)
+            sys.exit(1)
+        # A moon-and-twilight-only year has no sun table
+        tables_by_year[year] = ([None] * (3 - len(tables)) + tables, offset_hours)
+    return tables_by_year
+
+
 def display_month(year, month, nights, colors):
     """Display a month of nights as a colored table."""
     print()
@@ -335,21 +399,12 @@ def main():
     print(f"Timezone: {tz_name} ({format_utc_offset(offset_hours)})")
     print()
 
-    tables = fetch_tables(NIGHT_TABLES, year, lat, lon, offset_hours, no_cache)
-    if tables is None:
-        print("Failed to fetch one or more tables.")
-        return
-
-    # The night of December 31 ends on January 1 of the following year.
-    next_year_tables = None
-    if month in (None, 12):
-        print(f"Fetching {year + 1} tables for the night of December 31...")
-        next_offset_hours = standard_offset_hours(tz_name, year + 1)
-        next_year_tables = fetch_tables(NEXT_YEAR_TABLES, year + 1, lat, lon, next_offset_hours, no_cache)
+    first_day, last_day = resolve_date_range(year, month, None, None)
+    tables_by_year = fetch_night_tables(first_day, last_day, lat, lon, tz_name, no_cache)
+    nights = nights_between(first_day, last_day, tables_by_year, tz_name)
 
     for m in [month] if month else range(1, 13):
-        nights = night_rows(year, m, *tables, tz_name, offset_hours, next_year_tables)
-        display_month(year, m, nights, color_palette(no_color))
+        display_month(year, m, [night for night in nights if night.date.month == m], color_palette(no_color))
 
 
 if __name__ == "__main__":
