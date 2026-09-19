@@ -18,9 +18,11 @@ from tides import (
     build_rows,
     cache_is_fresh,
     date_chunks,
+    display,
     events_in_window,
     find_station,
     get_json,
+    group_days,
     haversine_miles,
     header_lines,
     label_hilo,
@@ -302,6 +304,12 @@ def test_rows_in_metres_keep_two_decimals():
     assert [row[3] for row in rows] == ["2.31", "0.70"]
 
 
+def test_tiny_negative_height_is_shown_as_zero_not_minus_zero():
+    events = [TideEvent(datetime(2026, 9, 19, 9, 56, tzinfo=UTC), "Low", -0.004)]
+    assert build_rows(events, ZoneInfo("America/New_York"), "ft")[0][3] == "0.0"
+    assert build_rows(events, ZoneInfo("America/New_York"), "m")[0][3] == "0.00"
+
+
 def test_rows_use_the_local_date_not_the_utc_date():
     late = [TideEvent(datetime(2026, 9, 20, 2, 5, tzinfo=UTC), "High", 2.603)]
     assert build_rows(late, ZoneInfo("America/New_York"), "ft")[0][:2] == ["Sat Sep 19", "22:05"]
@@ -327,6 +335,41 @@ def test_header_warns_when_station_is_over_50_miles_away():
     near = header_lines(PORTLAND, 49.9, 43.0, -71.2, "ft", "America/New_York")
     assert any("Warning" in line for line in far)
     assert not any("Warning" in line for line in near)
+
+
+# --- group_days / display ----------------------------------------------------
+
+THREE_DAY_ROWS = [
+    ["Sun Aug 29", "03:05", "Low", "1.9"],
+    ["Sun Aug 29", "09:12", "High", "22.8"],
+    ["Mon Aug 30", "03:52", "Low", "1.2"],
+    ["Mon Aug 30", "09:59", "High", "23.4"],
+    ["Tue Aug 31", "04:38", "Low", "0.8"],
+]
+
+
+def test_date_is_shown_only_on_the_first_row_of_each_day():
+    rows, _ = group_days(THREE_DAY_ROWS)
+    assert [row[0] for row in rows] == ["Sun Aug 29", "", "Mon Aug 30", "", "Tue Aug 31"]
+    assert [row[1:] for row in rows] == [row[1:] for row in THREE_DAY_ROWS]
+
+
+def test_bands_alternate_by_day_not_by_row():
+    _, bands = group_days(THREE_DAY_ROWS)
+    assert bands == [0, 0, 1, 1, 0]
+
+
+def test_display_stripes_each_day_with_one_background(capsys):
+    display(THREE_DAY_ROWS, ["Station: X"], ("", "<dark>", "<light>", "", "", ""))
+    table = capsys.readouterr().out.split("\n")[3:8]
+    assert [line[: line.index(">") + 1] for line in table] == ["<dark>", "<dark>", "<light>", "<light>", "<dark>"]
+
+
+def test_display_blanks_the_repeated_date(capsys):
+    display(THREE_DAY_ROWS, ["Station: X"], ("", "", "", "", "", ""))
+    table = capsys.readouterr().out.split("\n")[3:8]
+    assert table[0].startswith("Sun Aug 29  03:05")
+    assert table[1].startswith("            09:12")
 
 
 # --- parse_cli ---------------------------------------------------------------
@@ -459,9 +502,15 @@ def run_tides(*args):
 
 
 def table_rows(output):
-    """Tide rows of the printed table (lines starting with a weekday), right-trimmed."""
-    weekdays = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-    return [line.rstrip() for line in output.split("\n") if line.startswith(weekdays)]
+    """Tide rows of the printed table (everything below the header rule), right-trimmed."""
+    lines = [line.rstrip() for line in output.split("\n")]
+    rule = next(i for i, line in enumerate(lines) if line.startswith("----------"))
+    return [line for line in lines[rule + 1 :] if line]
+
+
+def days_shown(output):
+    """Dates in the printed table, in order; each day's date is on its first row only."""
+    return [row[:10] for row in table_rows(output) if not row.startswith(" ")]
 
 
 @pytest.mark.parametrize(
@@ -482,16 +531,15 @@ def test_single_day_prints_only_that_day():
     result = run_tides("43.6591,-70.2568", "2026", "oct", "4")
     assert result.returncode == 0, f"stderr: {result.stderr}"
 
-    rows = table_rows(result.stdout)
-    assert 3 <= len(rows) <= 5
-    assert all(row.startswith("Sun Oct 04") for row in rows)
+    assert 3 <= len(table_rows(result.stdout)) <= 5
+    assert days_shown(result.stdout) == ["Sun Oct 04"]
 
 
 def test_plus_n_prints_that_many_days_from_the_start_date():
     result = run_tides("43.6591,-70.2568", "2027", "aug", "29", "+7")
     assert result.returncode == 0, f"stderr: {result.stderr}"
 
-    days = list(dict.fromkeys(row[:10] for row in table_rows(result.stdout)))
+    days = days_shown(result.stdout)
     assert len(days) == 7
     assert (days[0], days[-1]) == ("Sun Aug 29", "Sat Sep 04")
 
@@ -499,6 +547,7 @@ def test_plus_n_prints_that_many_days_from_the_start_date():
 def test_heights_are_right_aligned_so_negative_lows_line_up():
     # Bar Harbor has a -0.3 ft low on the evening of 2026-10-01.
     result = run_tides("44.3876,-68.2039", "2026", "oct", "1")
+    assert result.returncode == 0, f"stderr: {result.stderr}"
     rows = table_rows(result.stdout)
     assert len({len(row) for row in rows}) == 1
     assert any(row.endswith("-0.3") for row in rows)
@@ -508,7 +557,7 @@ def test_chs_leap_year_needs_more_than_one_request_and_has_no_gaps():
     # 2028 plus fetch padding exceeds the CHS 366-day request limit.
     result = run_tides("47.5615,-52.7126", "2028")
     assert result.returncode == 0, f"stderr: {result.stderr}"
-    assert len({row[:10] for row in table_rows(result.stdout)}) == 366
+    assert len(days_shown(result.stdout)) == 366
 
 
 def test_station_override_is_used_instead_of_the_nearest():

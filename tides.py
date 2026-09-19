@@ -232,7 +232,11 @@ def build_rows(events, tz, units):
     rows = []
     for event in events:
         local = event.time.astimezone(tz)
-        height = f"{event.metres * FEET_PER_METRE:.1f}" if units == "ft" else f"{event.metres:.2f}"
+        # round() first, and add 0.0, so a height just below zero prints as "0.0" rather than "-0.0"
+        if units == "ft":
+            height = f"{round(event.metres * FEET_PER_METRE, 1) + 0.0:.1f}"
+        else:
+            height = f"{round(event.metres, 2) + 0.0:.2f}"
         rows.append([local.strftime("%a %b %d"), local.strftime("%H:%M"), event.kind, height])
     return rows
 
@@ -366,10 +370,36 @@ def fetch_events(station, start, end):
     return parse_chs_predictions(data)
 
 
+def group_days(rows):
+    """
+    Make each day read as one block.
+
+    Returns (rows, bands): the rows with the date kept only on the first row
+    of each day, and a 0/1 band per row that flips whenever the day changes.
+    """
+    grouped = []
+    bands = []
+    previous_date = None
+    band = 1
+    for row in rows:
+        if row[0] != previous_date:
+            band = 1 - band
+            previous_date = row[0]
+            grouped.append(row)
+        else:
+            grouped.append(["", *row[1:]])
+        bands.append(band)
+    return grouped, bands
+
+
 def display(rows, header, colors):
-    """Render the station header and tide rows as a single colored table."""
+    """
+    Render the station header and tide rows as a single colored table, with
+    the background striped by day rather than by row.
+    """
     reset, bg_dark, bg_light, header_bg, header_fg, text_fg = colors
 
+    rows, bands = group_days(rows)
     table_str = tabulate(
         rows,
         headers=["Date", "Time", "Tide", "Height"],
@@ -384,8 +414,8 @@ def display(rows, header, colors):
     for line in header + lines[:2]:
         print(f"{header_bg}{header_fg}{line:<{max_width}}{reset}")
 
-    for i, line in enumerate(lines[2:]):
-        bg = bg_dark if i % 2 == 0 else bg_light
+    for line, band in zip(lines[2:], bands):
+        bg = bg_dark if band == 0 else bg_light
         print(f"{bg}{text_fg}{line:<{max_width}}{reset}")
 
 

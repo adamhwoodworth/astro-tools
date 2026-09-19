@@ -206,7 +206,7 @@ Options:
 ### Example Output
 
 ```
-$ uv run tides.py 44.81,-66.95 2026 sep 19 --no-color
+$ uv run tides.py 44.81,-66.95 2026 sep 19 +2 --no-color
 Finding tide station...
   Using cached station lists
 Fetching tide predictions from CHS...
@@ -216,9 +216,15 @@ Heights in ft above chart datum, times America/New_York
 Date        Time    Tide      Height
 ----------  ------  ------  --------
 Sat Sep 19  05:28   High        18.0
-Sat Sep 19  11:42   Low          6.1
-Sat Sep 19  17:49   High        18.9
+            11:42   Low          6.1
+            17:49   High        18.9
+Sun Sep 20  00:20   Low          5.2
+            06:24   High        17.8
+            12:39   Low          6.2
+            18:46   High        18.8
 ```
+
+Each day's date is printed once, on its first tide, and the colored background alternates by day so a day reads as one block.
 
 ## Running Tests
 
