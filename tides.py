@@ -14,6 +14,7 @@ import argparse
 import calendar
 import json
 import math
+import re
 import sys
 import time as time_module
 from datetime import UTC, date, datetime, time, timedelta
@@ -58,6 +59,9 @@ KM_PER_MILE = 1.609344
 FAR_STATION_MILES = 50
 
 DATUMS = {"NOAA": "MLLW", "CHS": "chart datum"}
+
+# The +N day-count argument, e.g. +7
+DAYS_ARG = re.compile(r"\+\d+")
 
 # CHS time series holding high/low tide predictions
 CHS_HILO = "wlp-hilo"
@@ -170,21 +174,27 @@ def parse_chs_predictions(data):
     return [TideEvent(t, label, heights[t]) for t, label in zip(times, labels)]
 
 
-def resolve_date_range(year, month, day, today):
+def resolve_date_range(year, month, day, today, days=None):
     """
     First and last local dates to display (inclusive).
 
     No arguments means today; a year means the whole year; year and month the
-    whole month; year, month and day that single day. Raises ValueError for a
-    day that does not exist.
+    whole month; year, month and day that single day. A days count instead
+    runs that many days from the first of those dates, the first included.
+    Raises ValueError for a day that does not exist.
     """
     if year is None:
-        return today, today
-    if month is None:
-        return date(year, 1, 1), date(year, 12, 31)
-    if day is None:
-        return date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
-    return date(year, month, day), date(year, month, day)
+        first, last = today, today
+    elif month is None:
+        first, last = date(year, 1, 1), date(year, 12, 31)
+    elif day is None:
+        first, last = date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
+    else:
+        first, last = date(year, month, day), date(year, month, day)
+
+    if days is not None:
+        last = first + timedelta(days=days - 1)
+    return first, last
 
 
 def local_window(start_date, end_date, tz):
@@ -254,9 +264,10 @@ def month_arg(value):
 def parse_cli(argv):
     """Parse and validate command line arguments."""
     parser = argparse.ArgumentParser(
-        usage="%(prog)s <lat,long> [year] [month] [day] [options]",
+        usage="%(prog)s <lat,long> [year] [month] [day] [+N] [options]",
         description="High/low tide table for the tide station nearest a location. "
-        "With no date, shows today; a year, year and month, or year, month and day narrow the range.",
+        "With no date, shows today; a year, year and month, or year, month and day narrow the range. "
+        "+N (e.g. +7) shows N days counting from the first of those dates.",
     )
     parser.add_argument("year", nargs="?", type=year_arg, help="4-digit year")
     parser.add_argument("month", nargs="?", type=month_arg, help="3-letter abbreviation, e.g. oct")
@@ -272,9 +283,21 @@ def parse_cli(argv):
     index = next((i for i, arg in enumerate(argv) if "," in arg), None)
     if index is None:
         parser.error("lat,long is required, e.g. '44.85, -66.98' or 44.85,-66.98")
+    latlong = argv[index]
+    argv = argv[:index] + argv[index + 1 :]
 
-    args = parser.parse_args(argv[:index] + argv[index + 1 :])
-    args.lat, args.lon = parse_latlong(argv[index])
+    # So is the +N day count, which argparse has no positional syntax for.
+    days = None
+    index = next((i for i, arg in enumerate(argv) if DAYS_ARG.fullmatch(arg)), None)
+    if index is not None:
+        days = int(argv[index])
+        if days < 1:
+            parser.error(f"+N must be at least +1, got '{argv[index]}'")
+        argv = argv[:index] + argv[index + 1 :]
+
+    args = parser.parse_args(argv)
+    args.lat, args.lon = parse_latlong(latlong)
+    args.days = days
     return args
 
 
@@ -389,7 +412,7 @@ def main():
             tz = datetime.now().astimezone().tzinfo
             tz_name = str(tz)
 
-        first_day, last_day = resolve_date_range(args.year, args.month, args.day, datetime.now(tz).date())
+        first_day, last_day = resolve_date_range(args.year, args.month, args.day, datetime.now(tz).date(), args.days)
         start, end = local_window(first_day, last_day, tz)
 
         print(f"Fetching tide predictions from {station.source}...")

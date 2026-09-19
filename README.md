@@ -169,7 +169,7 @@ Times are shown in the time zone of the location you asked about, which near a b
 ### Usage
 
 ```bash
-uv run tides.py <lat,long> [year] [month] [day] [--units ft|m] [--tz ZONE] [--station ID] [--refresh] [--no-color]
+uv run tides.py <lat,long> [year] [month] [day] [+N] [--units ft|m] [--tz ZONE] [--station ID] [--refresh] [--no-color]
 ```
 
 ```bash
@@ -184,7 +184,15 @@ uv run tides.py '44.85, -66.98' 2026 oct
 
 # A single day
 uv run tides.py '44.85, -66.98' 2026 oct 4
+
+# 7 days starting on a date (Aug 29 through Sep 4)
+uv run tides.py 44.85,-66.98 2027 aug 29 +7
+
+# The week starting today
+uv run tides.py 44.85,-66.98 +7
 ```
+
+`+N` shows N days counting from the first date of the range, that date included, so `+1` is the same as a single day. After only a year or a year and month it counts from the first day of that year or month (`2027 aug +10` is Aug 1 through Aug 10).
 
 Valid months: `jan`, `feb`, `mar`, `apr`, `may`, `jun`, `jul`, `aug`, `sep`, `oct`, `nov`, `dec`
 

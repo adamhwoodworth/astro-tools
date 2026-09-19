@@ -208,6 +208,22 @@ def test_day_that_does_not_exist_in_the_month_is_rejected():
         resolve_date_range(2026, 2, 30, TODAY)
 
 
+def test_days_counts_from_the_start_date_inclusive_across_a_month_end():
+    assert resolve_date_range(2027, 8, 29, TODAY, days=7) == (date(2027, 8, 29), date(2027, 9, 4))
+
+
+def test_one_day_is_the_same_as_the_single_date():
+    assert resolve_date_range(2027, 8, 29, TODAY, days=1) == (date(2027, 8, 29), date(2027, 8, 29))
+
+
+def test_days_without_a_date_start_today():
+    assert resolve_date_range(None, None, None, TODAY, days=7) == (TODAY, date(2026, 9, 25))
+
+
+def test_days_with_only_a_month_start_on_its_first_day():
+    assert resolve_date_range(2027, 8, None, TODAY, days=10) == (date(2027, 8, 1), date(2027, 8, 10))
+
+
 # --- local_window / events_in_window ----------------------------------------
 
 
@@ -336,6 +352,26 @@ def test_cli_accepts_southern_latitude_that_starts_with_a_minus():
     assert args.no_color is True
 
 
+def test_cli_plus_n_after_the_date_is_a_day_count():
+    args = parse_cli(["44.85,-66.98", "2027", "aug", "29", "+7"])
+    assert (args.year, args.month, args.day) == (2027, 8, 29)
+    assert args.days == 7
+
+
+def test_cli_plus_n_works_without_a_date():
+    args = parse_cli(["44.85,-66.98", "+3"])
+    assert (args.year, args.days) == (None, 3)
+
+
+def test_cli_without_plus_n_has_no_day_count():
+    assert parse_cli(["44.85,-66.98", "2027"]).days is None
+
+
+def test_cli_rejects_a_day_count_of_zero():
+    with pytest.raises(SystemExit):
+        parse_cli(["44.85,-66.98", "+0"])
+
+
 def test_cli_rejects_a_month_that_is_not_a_three_letter_abbreviation():
     with pytest.raises(SystemExit):
         parse_cli(["44.85,-66.98", "2026", "october"])
@@ -449,6 +485,15 @@ def test_single_day_prints_only_that_day():
     rows = table_rows(result.stdout)
     assert 3 <= len(rows) <= 5
     assert all(row.startswith("Sun Oct 04") for row in rows)
+
+
+def test_plus_n_prints_that_many_days_from_the_start_date():
+    result = run_tides("43.6591,-70.2568", "2027", "aug", "29", "+7")
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+
+    days = list(dict.fromkeys(row[:10] for row in table_rows(result.stdout)))
+    assert len(days) == 7
+    assert (days[0], days[-1]) == ("Sun Aug 29", "Sat Sep 04")
 
 
 def test_heights_are_right_aligned_so_negative_lows_line_up():
