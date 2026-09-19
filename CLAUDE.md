@@ -13,3 +13,4 @@ See README.md for usage and examples.
 - USNO API results are cached in `cache/` (MD5 hash of request parameters)
 - `tides.py` caches the merged NOAA/CHS station list in `cache/tides_stations.json` (30-day expiry, `--refresh` to force); tide predictions are never cached
 - `docs/superpowers/specs/2026-09-19-tides-script-design.md` holds the verified NOAA/CHS API notes behind `tides.py`
+- `nightplan.py` combines `tides.py` and `darknights.py`; it imports `night_rows` from `darknights.py` and `tide_events_for` from `tides.py`, and shared CLI/date/table code lives in `astro_common.py`

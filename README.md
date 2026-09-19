@@ -226,6 +226,63 @@ Sun Sep 20  00:20   Low          5.2
 
 Each day's date is printed once, on its first tide, and the colored background alternates by day so a day reads as one block.
 
+## nightplan.py
+
+Combines `tides.py` and `darknights.py`: for each day, the high and low tides at the nearest tide station alongside that night's sunset, astronomical twilight, moon state, and dark sky duration. Useful for planning night photography on the coast, where both the tide and the darkness matter.
+
+Each day is one block. Its first row carries the date, the day's first tide, and the night's columns (the same ones `darknights.py` shows); the day's remaining tides follow beneath. The colored background alternates by day. All times are in the location's time zone.
+
+### Usage
+
+```bash
+uv run nightplan.py <lat,long> [year] [month] [day] [+N] [--units ft|m] [--station ID] [--refresh] [--no-cache] [--no-color]
+```
+
+The date arguments work exactly as in `tides.py`: no date means today, and `+N` shows N days from the start date.
+
+```bash
+# Tonight
+uv run nightplan.py '44.85, -66.98'
+
+# The week starting today
+uv run nightplan.py 44.85,-66.98 +7
+
+# A whole month
+uv run nightplan.py 44.85,-66.98 2026 oct
+```
+
+Options:
+- `--units ft|m`, `--station ID`, `--refresh`: as in `tides.py`
+- `--no-cache`: Bypass cache and fetch fresh data from USNO
+- `--no-color`: Disable ANSI color codes in output
+
+### Example Output
+
+```
+$ uv run nightplan.py 44.81,-66.95 2026 sep 19 +2 --no-color
+Finding tide station...
+  Using cached station lists
+Fetching tide predictions from CHS...
+Fetching sunrise/sunset table...
+  Using cached data
+Fetching moonrise/moonset table...
+  Using cached data
+Fetching astronomical twilight table...
+  Using cached data
+
+Station: Welshpool (CHS 00015) — 5.5 mi from 44.8100, -66.9500
+Heights in ft above chart datum, times America/New_York
+Date        Time    Tide      Height  Sunset    Twi End    Moon    Moon Event                Twi Start    Dark Sky    Rating
+----------  ------  ------  --------  --------  ---------  ------  ------------------------  -----------  ----------  --------
+Sat Sep 19  05:28   High        18.0  18:31     20:10      Up      Moonset 23:20             04:33        5:13        ★★★★★
+            11:42   Low          6.1
+            17:49   High        18.9
+Sun Sep 20  00:20   Low          5.2  18:29     20:08      Up      Moonset 00:24 (next day)  04:35        4:11        ★★★★
+            06:24   High        17.8
+            12:39   Low          6.2
+            18:46   High        18.8
+```
+
 ## Running Tests
 
 ```bash
