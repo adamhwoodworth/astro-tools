@@ -153,6 +153,60 @@ Jun 30  Moonset / Sunrise  04:51   04:45       6  ★★★
 Jun 30  Moonrise / Sunset  21:15   20:18      57  ★
 ```
 
+## tides.py
+
+Prints a table of high and low tides for the tide prediction station nearest a location.
+
+Uses NOAA CO-OPS for the US and its territories and the Canadian Hydrographic Service (CHS) for Canada. Neither API accepts coordinates, so the script downloads both station lists, picks the closest station by great-circle distance, and asks the API that owns it for predictions. The station lists are cached in `cache/` and re-downloaded when older than 30 days. Locations outside the US and Canada are not covered; the script warns when the nearest station is more than 50 miles away.
+
+Times are shown in the time zone of the location you asked about, which near a border can differ from the station's. Heights are relative to the source's datum (MLLW for NOAA, chart datum for CHS), named in the table header; the two are close but not identical.
+
+### Usage
+
+```bash
+uv run tides.py <lat,long> [year] [month] [day] [--units ft|m] [--tz ZONE] [--station ID] [--refresh] [--no-color]
+```
+
+```bash
+# Today
+uv run tides.py '44.85, -66.98'
+
+# Specific year, every day
+uv run tides.py 44.85,-66.98 2026
+
+# Specific year and month
+uv run tides.py '44.85, -66.98' 2026 oct
+
+# A single day
+uv run tides.py '44.85, -66.98' 2026 oct 4
+```
+
+Valid months: `jan`, `feb`, `mar`, `apr`, `may`, `jun`, `jul`, `aug`, `sep`, `oct`, `nov`, `dec`
+
+Options:
+- `--units ft|m`: Height units (default `ft`); distances follow as miles or kilometres
+- `--tz ZONE`: Display times in this zone (e.g. `America/St_Johns`) instead of the location's
+- `--station ID`: Use this NOAA station id or CHS station code instead of the nearest station. Straight-line nearest can pick a station across a peninsula or up a river
+- `--refresh`: Re-download the cached station lists
+- `--no-color`: Disable ANSI color codes in output
+
+### Example Output
+
+```
+$ uv run tides.py 44.81,-66.95 2026 sep 19 --no-color
+Finding tide station...
+  Using cached station lists
+Fetching tide predictions from CHS...
+
+Station: Welshpool (CHS 00015) — 5.5 mi from 44.8100, -66.9500
+Heights in ft above chart datum, times America/New_York
+Date        Time    Tide      Height
+----------  ------  ------  --------
+Sat Sep 19  05:28   High        18.0
+Sat Sep 19  11:42   Low          6.1
+Sat Sep 19  17:49   High        18.9
+```
+
 ## Running Tests
 
 ```bash
