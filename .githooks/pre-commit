@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+#
+# Format and lint the Python files staged for this commit.
+#
+# Staged files are formatted in place with `ruff format` and re-staged, so the
+# commit always contains formatted code. The commit is then blocked if
+# `ruff check` reports lint errors.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+# Skip for one commit:    git commit --no-verify
+
+set -euo pipefail
+
+staged=()
+while IFS= read -r -d '' file; do
+    staged+=("$file")
+done < <(git diff --cached --name-only --diff-filter=ACMR -z -- '*.py')
+
+if [ ${#staged[@]} -eq 0 ]; then
+    exit 0
+fi
+
+# A file with further unstaged edits cannot be formatted and re-staged without
+# pulling those edits into the commit, so it is only checked.
+partial=()
+while IFS= read -r -d '' file; do
+    partial+=("$file")
+done < <(git diff --name-only -z -- "${staged[@]}")
+
+if [ ${#partial[@]} -gt 0 ] && ! uv run ruff format --check "${partial[@]}"; then
+    echo >&2
+    echo "pre-commit: the files above need formatting but also have unstaged changes." >&2
+    echo "Run 'uv run ruff format', stage what belongs in the commit, and commit again." >&2
+    exit 1
+fi
+
+# Everything else is formatted and re-staged.
+whole=()
+for file in "${staged[@]}"; do
+    is_partial=false
+    for other in ${partial[@]+"${partial[@]}"}; do
+        if [ "$file" = "$other" ]; then
+            is_partial=true
+        fi
+    done
+    if [ "$is_partial" = false ]; then
+        whole+=("$file")
+    fi
+done
+
+if [ ${#whole[@]} -gt 0 ]; then
+    uv run ruff format --quiet "${whole[@]}"
+    git add -- "${whole[@]}"
+fi
+
+if ! uv run ruff check "${staged[@]}"; then
+    echo >&2
+    echo "pre-commit: lint errors block the commit. Try 'uv run ruff check --fix'." >&2
+    exit 1
+fi

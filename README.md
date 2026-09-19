@@ -6,7 +6,12 @@ Astrophotography and night sky observation planning tools.
 
 ```bash
 uv sync
+
+# Enable the git pre-commit hook (once per clone)
+git config core.hooksPath .githooks
 ```
+
+The pre-commit hook formats the staged Python files with `ruff format`, re-stages them, and blocks the commit if `ruff check` finds lint errors. A staged file that also has unstaged edits is not reformatted (that would pull the unstaged edits into the commit); if it needs formatting the commit is blocked instead. Skip the hook for one commit with `git commit --no-verify`.
 
 ## darknights.py
 
