@@ -12,6 +12,7 @@ from astro_common import (
     color_palette,
     dst_delta_hours,
     fetch_tables,
+    format_utc_offset,
     get_days_in_month,
     location_timezone,
     parse_args,
@@ -319,7 +320,7 @@ def main():
     lon_dir = "E" if lon >= 0 else "W"
     print(f"Fetching astronomical data for {year}...")
     print(f"Location: {abs(lat):.4f}°{lat_dir}, {abs(lon):.4f}°{lon_dir}")
-    print(f"Timezone: {tz_name} (UTC{offset_hours:+.0f})")
+    print(f"Timezone: {tz_name} ({format_utc_offset(offset_hours)})")
     print()
 
     tables = fetch_tables(NIGHT_TABLES, year, lat, lon, offset_hours, no_cache)

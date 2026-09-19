@@ -12,6 +12,7 @@ import pytest
 from astro_common import (
     color_palette,
     format_time,
+    format_utc_offset,
     get_days_in_month,
     parse_latlong,
     parse_table,
@@ -133,6 +134,35 @@ def test_usno_tz_params_west_of_greenwich():
 
 def test_usno_tz_params_east_of_greenwich():
     assert usno_tz_params(2.0) == (2, 1)
+
+
+def test_usno_tz_params_keep_a_half_hour_offset():
+    # Newfoundland standard time is UTC-3:30; truncating it to 3 shifts every time by 30 minutes.
+    assert usno_tz_params(-3.5) == (3.5, -1)
+
+
+def test_usno_tz_params_keep_a_quarter_hour_offset():
+    # Nepal is UTC+5:45.
+    assert usno_tz_params(5.75) == (5.75, 1)
+
+
+def test_standard_offset_of_a_half_hour_zone():
+    assert standard_offset_hours("America/St_Johns", 2026) == -3.5
+
+
+# --- format_utc_offset ---------------------------------------------------------
+
+
+def test_format_whole_hour_offset():
+    assert format_utc_offset(-5.0) == "UTC-5"
+
+
+def test_format_half_hour_offset_west():
+    assert format_utc_offset(-3.5) == "UTC-3:30"
+
+
+def test_format_quarter_hour_offset_east():
+    assert format_utc_offset(5.75) == "UTC+5:45"
 
 
 # --- color_palette / print_table ----------------------------------------------

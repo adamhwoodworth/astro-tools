@@ -105,3 +105,13 @@ def test_july_late_evening_moon_events_labeled_next_day():
     assert result.returncode == 0, result.stderr
     assert "(next day)" in july_row(result.stdout, "Jul  8")  # Moonrise 00:10
     assert "(next day)" in july_row(result.stdout, "Jul 24")  # Moonset 00:58
+
+
+def test_half_hour_zone_times_are_not_shifted_by_30_minutes():
+    # St. John's, NL keeps UTC-3:30. USNO gives sunset on 2026-01-01 as 16:20
+    # for that offset (16:50 if the half hour is dropped).
+    result = run_cli("47.56,-52.71", "2026", "jan", "--no-color")
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    assert "Timezone: America/St_Johns (UTC-3:30)" in result.stdout
+    jan_1 = next(line for line in result.stdout.split("\n") if line.startswith("Jan  1"))
+    assert jan_1.split()[2] == "16:20"

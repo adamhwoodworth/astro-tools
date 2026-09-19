@@ -324,8 +324,21 @@ def standard_offset_hours(tz_name, year):
 
 
 def usno_tz_params(offset_hours):
-    """USNO's (tz, tz_sign) request parameters for a UTC offset."""
-    return int(abs(offset_hours)), -1 if offset_hours <= 0 else 1
+    """
+    USNO's (tz, tz_sign) request parameters for a UTC offset.
+
+    USNO accepts fractional hours (Newfoundland is 3.5), so the offset is sent
+    as is rather than truncated.
+    """
+    return abs(offset_hours), -1 if offset_hours <= 0 else 1
+
+
+def format_utc_offset(offset_hours):
+    """A UTC offset in hours as text, e.g. 'UTC-5' or 'UTC-3:30'."""
+    minutes = round(abs(offset_hours) * 60)
+    sign = "-" if offset_hours < 0 else "+"
+    text = f"UTC{sign}{minutes // 60}"
+    return f"{text}:{minutes % 60:02d}" if minutes % 60 else text
 
 
 def fetch_tables(tasks, year, lat, lon, offset_hours, no_cache=False):
