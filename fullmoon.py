@@ -10,27 +10,18 @@ filenames, and --no-cache behavior are identical (and the two tools share any
 already-downloaded sun/moon tables).
 """
 
-import sys
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
-from tabulate import tabulate
-from timezonefinder import TimezoneFinder
-
 from astro_common import (
-    BG_DARK_BLUE,
-    BG_LIGHT_BLUE,
-    HEADER_BG,
-    HEADER_FG,
     MONTH_NAMES,
-    RESET,
-    TEXT_FG,
+    color_palette,
     dst_delta_hours,
-    fetch_yearly_table,
+    fetch_tables,
     get_days_in_month,
+    location_timezone,
     parse_args,
     parse_table,
+    print_table,
     shift_time,
+    standard_offset_hours,
     time_to_minutes,
 )
 
@@ -122,51 +113,19 @@ def build_rows(year, months, sun_html, moon_html, tz_name, baseline_offset_hours
 
 def display(rows, title, colors):
     """Render the qualifying events as a single colored table."""
-    reset, bg_dark, bg_light, header_bg, header_fg, text_fg = colors
-
     if not rows:
         print(f"No moonrise-near-sunset or moonset-near-sunrise events within {MATCH_WINDOW} minutes were found.")
         return
 
-    headers = ["Date", "Event", "Moon", "Sun", "Diff", "Rating"]
-    table_str = tabulate(rows, headers=headers, tablefmt="simple")
-    lines = table_str.split("\n")
-
-    max_width = max(len(line) for line in lines + [title])
-
-    print(f"{header_bg}{header_fg}{title:<{max_width}}{reset}")
-    print(f"{header_bg}{header_fg}{lines[0]:<{max_width}}{reset}")
-    print(f"{header_bg}{header_fg}{lines[1]:<{max_width}}{reset}")
-
-    for i, line in enumerate(lines[2:]):
-        padded_line = f"{line:<{max_width}}"
-        if i % 2 == 0:
-            print(f"{bg_dark}{text_fg}{padded_line}{reset}")
-        else:
-            print(f"{bg_light}{text_fg}{padded_line}{reset}")
+    print_table([title], ["Date", "Event", "Moon", "Sun", "Diff", "Rating"], rows, colors)
 
 
 def main():
     """Fetch USNO data and display moonrise/sunset and moonset/sunrise windows."""
     lat, lon, year, month, no_color, no_cache = parse_args()
 
-    # Compute timezone from lat/long.
-    tf = TimezoneFinder()
-    tz_name = tf.timezone_at(lat=lat, lng=lon)
-    if tz_name is None:
-        print(f"Error: could not determine timezone for {lat}, {lon}", file=sys.stderr)
-        sys.exit(1)
-
-    # Use January 1 to get the standard (non-DST) offset for the yearly fetch.
-    dt = datetime(year, 1, 1, tzinfo=ZoneInfo(tz_name))
-    offset_hours = dt.utcoffset().total_seconds() / 3600
-    tz_value = int(abs(offset_hours))
-    tz_sign = -1 if offset_hours <= 0 else 1
-
-    if no_color:
-        colors = ("", "", "", "", "", "")
-    else:
-        colors = (RESET, BG_DARK_BLUE, BG_LIGHT_BLUE, HEADER_BG, HEADER_FG, TEXT_FG)
+    tz_name = location_timezone(lat, lon)
+    offset_hours = standard_offset_hours(tz_name, year)
 
     lat_dir = "N" if lat >= 0 else "S"
     lon_dir = "E" if lon >= 0 else "W"
@@ -175,15 +134,12 @@ def main():
     print(f"Timezone: {tz_name} (UTC{offset_hours:+.0f})")
     print()
 
-    print("Fetching sunrise/sunset table...")
-    sun_html = fetch_yearly_table(0, year, lat, lon, tz_value, tz_sign, no_cache)
-
-    print("Fetching moonrise/moonset table...")
-    moon_html = fetch_yearly_table(1, year, lat, lon, tz_value, tz_sign, no_cache)
-
-    if not sun_html or not moon_html:
+    # Sunrise/sunset and moonrise/moonset
+    tables = fetch_tables((0, 1), year, lat, lon, offset_hours, no_cache)
+    if tables is None:
         print("Failed to fetch one or more tables.")
         return
+    sun_html, moon_html = tables
 
     months = [month] if month else list(range(1, 13))
     rows = build_rows(year, months, sun_html, moon_html, tz_name, offset_hours)
@@ -191,7 +147,7 @@ def main():
     print()
     month_label = f"{MONTH_NAMES[month]} " if month else ""
     title = f"Moonrise↔sunset & moonset↔sunrise windows · {month_label}{year}"
-    display(rows, title, colors)
+    display(rows, title, color_palette(no_color))
 
 
 if __name__ == "__main__":

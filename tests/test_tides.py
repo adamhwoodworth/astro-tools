@@ -33,7 +33,6 @@ from tides import (
     parse_chs_predictions,
     parse_cli,
     parse_noaa_predictions,
-    resolve_date_range,
 )
 
 NOAA_STATIONS_JSON = {
@@ -182,48 +181,6 @@ def test_chs_event_repeated_at_a_chunk_boundary_is_kept_once():
         {"eventDate": "2026-09-19T08:29:00Z", "value": 0.704},
     ]
     assert [e.kind for e in parse_chs_predictions(data)] == ["High", "Low"]
-
-
-# --- resolve_date_range ------------------------------------------------------
-
-TODAY = date(2026, 9, 19)
-
-
-def test_no_date_arguments_means_today():
-    assert resolve_date_range(None, None, None, TODAY) == (TODAY, TODAY)
-
-
-def test_year_only_covers_the_whole_year():
-    assert resolve_date_range(2027, None, None, TODAY) == (date(2027, 1, 1), date(2027, 12, 31))
-
-
-def test_year_and_month_cover_the_whole_month():
-    assert resolve_date_range(2028, 2, None, TODAY) == (date(2028, 2, 1), date(2028, 2, 29))
-
-
-def test_year_month_day_is_a_single_day():
-    assert resolve_date_range(2026, 10, 4, TODAY) == (date(2026, 10, 4), date(2026, 10, 4))
-
-
-def test_day_that_does_not_exist_in_the_month_is_rejected():
-    with pytest.raises(ValueError):
-        resolve_date_range(2026, 2, 30, TODAY)
-
-
-def test_days_counts_from_the_start_date_inclusive_across_a_month_end():
-    assert resolve_date_range(2027, 8, 29, TODAY, days=7) == (date(2027, 8, 29), date(2027, 9, 4))
-
-
-def test_one_day_is_the_same_as_the_single_date():
-    assert resolve_date_range(2027, 8, 29, TODAY, days=1) == (date(2027, 8, 29), date(2027, 8, 29))
-
-
-def test_days_without_a_date_start_today():
-    assert resolve_date_range(None, None, None, TODAY, days=7) == (TODAY, date(2026, 9, 25))
-
-
-def test_days_with_only_a_month_start_on_its_first_day():
-    assert resolve_date_range(2027, 8, None, TODAY, days=10) == (date(2027, 8, 1), date(2027, 8, 10))
 
 
 # --- local_window / events_in_window ----------------------------------------

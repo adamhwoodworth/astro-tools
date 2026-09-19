@@ -2,18 +2,22 @@
 Shared building blocks for the astro tools.
 
 Fetching and caching the US Naval Observatory yearly rise/set tables, parsing
-them, time/DST helpers, command-line argument parsing, and the ANSI color
-palette used for table output. Imported by both darknights.py and fullmoon.py.
+them, time/DST helpers, command-line argument parsing, and the colored table
+output. Imported by darknights.py, fullmoon.py, tides.py, and nightplan.py.
 """
 
+import argparse
+import calendar
 import hashlib
 import re
 import sys
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
+from tabulate import tabulate
+from timezonefinder import TimezoneFinder
 
 # ANSI color codes for blue astro palette
 RESET = "\033[0m"
@@ -25,6 +29,12 @@ TEXT_FG = "\033[38;5;153m"  # Light blue text
 
 # Configuration
 CACHE_DIR = Path("cache")
+
+# USNO yearly table tasks
+USNO_TABLES = {0: "sunrise/sunset", 1: "moonrise/moonset", 4: "astronomical twilight"}
+
+# The +N day-count argument, e.g. +7
+DAYS_ARG = re.compile(r"\+\d+")
 
 # Month abbreviation to number mapping
 MONTH_ABBREVS = {
@@ -296,3 +306,145 @@ def get_days_in_month(year, month):
     if month == 2 and (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
         days[2] = 29
     return days[month]
+
+
+def location_timezone(lat, lon):
+    """IANA timezone name for a location; exits with an error if there is none."""
+    tz_name = TimezoneFinder().timezone_at(lat=lat, lng=lon)
+    if tz_name is None:
+        print(f"Error: could not determine timezone for {lat}, {lon}", file=sys.stderr)
+        sys.exit(1)
+    return tz_name
+
+
+def standard_offset_hours(tz_name, year):
+    """The zone's standard (non-DST) UTC offset in hours, taken on January 1."""
+    dt = datetime(year, 1, 1, tzinfo=ZoneInfo(tz_name))
+    return dt.utcoffset().total_seconds() / 3600
+
+
+def usno_tz_params(offset_hours):
+    """USNO's (tz, tz_sign) request parameters for a UTC offset."""
+    return int(abs(offset_hours)), -1 if offset_hours <= 0 else 1
+
+
+def fetch_tables(tasks, year, lat, lon, offset_hours, no_cache=False):
+    """
+    Fetch several USNO yearly tables in the given fixed offset.
+
+    Returns the raw tables in task order, or None if any of them failed.
+    """
+    tz_value, tz_sign = usno_tz_params(offset_hours)
+    tables = []
+    for task in tasks:
+        print(f"Fetching {USNO_TABLES[task]} table...")
+        tables.append(fetch_yearly_table(task, year, lat, lon, tz_value, tz_sign, no_cache))
+    return tables if all(tables) else None
+
+
+def color_palette(no_color):
+    """The (reset, bg_dark, bg_light, header_bg, header_fg, text_fg) codes for table output."""
+    if no_color:
+        return ("", "", "", "", "", "")
+    return (RESET, BG_DARK_BLUE, BG_LIGHT_BLUE, HEADER_BG, HEADER_FG, TEXT_FG)
+
+
+def print_table(title_lines, headers, rows, colors, bands=None, **tabulate_options):
+    """
+    Print rows as a full-width colored table under its title lines.
+
+    The background alternates row by row, or follows bands (a 0/1 per row)
+    when given, so that related rows can share a stripe.
+    """
+    reset, bg_dark, bg_light, header_bg, header_fg, text_fg = colors
+
+    lines = tabulate(rows, headers=headers, tablefmt="simple", **tabulate_options).split("\n")
+    max_width = max(len(line) for line in lines + title_lines)
+
+    for line in title_lines + lines[:2]:
+        print(f"{header_bg}{header_fg}{line:<{max_width}}{reset}")
+
+    if bands is None:
+        bands = [i % 2 for i in range(len(rows))]
+    for line, band in zip(lines[2:], bands):
+        bg = bg_dark if band == 0 else bg_light
+        print(f"{bg}{text_fg}{line:<{max_width}}{reset}")
+
+
+def year_arg(value):
+    if not value.isdigit() or len(value) != 4:
+        raise argparse.ArgumentTypeError(f"year must be 4 digits, got '{value}'")
+    return int(value)
+
+
+def month_arg(value):
+    if value.lower() not in MONTH_ABBREVS:
+        raise argparse.ArgumentTypeError(f"month must be one of {', '.join(MONTH_ABBREVS)}, got '{value}'")
+    return MONTH_ABBREVS[value.lower()]
+
+
+def date_range_parser(description):
+    """
+    Argument parser for tools taking `<lat,long> [year] [month] [day] [+N]`.
+
+    Callers add their own options, then parse with parse_date_range_args.
+    """
+    parser = argparse.ArgumentParser(
+        usage="%(prog)s <lat,long> [year] [month] [day] [+N] [options]",
+        description=f"{description} "
+        "With no date, shows today; a year, year and month, or year, month and day narrow the range. "
+        "+N (e.g. +7) shows N days counting from the first of those dates.",
+    )
+    parser.add_argument("year", nargs="?", type=year_arg, help="4-digit year")
+    parser.add_argument("month", nargs="?", type=month_arg, help="3-letter abbreviation, e.g. oct")
+    parser.add_argument("day", nargs="?", type=int, help="day of the month")
+    parser.add_argument("--no-color", action="store_true", help="disable ANSI color codes in output")
+    return parser
+
+
+def parse_date_range_args(parser, argv):
+    """Parse argv with a date_range_parser; adds lat, lon, and days (None without +N)."""
+    # The coordinates are pulled out first: a southern latitude ("-14.28,-170.69")
+    # starts with a minus sign, which argparse would take for an option.
+    index = next((i for i, arg in enumerate(argv) if "," in arg), None)
+    if index is None:
+        parser.error("lat,long is required, e.g. '44.85, -66.98' or 44.85,-66.98")
+    latlong = argv[index]
+    argv = argv[:index] + argv[index + 1 :]
+
+    # So is the +N day count, which argparse has no positional syntax for.
+    days = None
+    index = next((i for i, arg in enumerate(argv) if DAYS_ARG.fullmatch(arg)), None)
+    if index is not None:
+        days = int(argv[index])
+        if days < 1:
+            parser.error(f"+N must be at least +1, got '{argv[index]}'")
+        argv = argv[:index] + argv[index + 1 :]
+
+    args = parser.parse_args(argv)
+    args.lat, args.lon = parse_latlong(latlong)
+    args.days = days
+    return args
+
+
+def resolve_date_range(year, month, day, today, days=None):
+    """
+    First and last local dates to display (inclusive).
+
+    No arguments means today; a year means the whole year; year and month the
+    whole month; year, month and day that single day. A days count instead
+    runs that many days from the first of those dates, the first included.
+    Raises ValueError for a day that does not exist.
+    """
+    if year is None:
+        first, last = today, today
+    elif month is None:
+        first, last = date(year, 1, 1), date(year, 12, 31)
+    elif day is None:
+        first, last = date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
+    else:
+        first, last = date(year, month, day), date(year, month, day)
+
+    if days is not None:
+        last = first + timedelta(days=days - 1)
+    return first, last

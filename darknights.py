@@ -4,29 +4,28 @@ Fetch yearly astronomical tables from US Naval Observatory and display
 sunrise/sunset, moonrise/moonset, and astronomical twilight data.
 """
 
-import sys
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-
-from tabulate import tabulate
-from timezonefinder import TimezoneFinder
+from datetime import date, datetime, timedelta
+from typing import NamedTuple
 
 from astro_common import (
-    BG_DARK_BLUE,
-    BG_LIGHT_BLUE,
-    HEADER_BG,
-    HEADER_FG,
     MONTH_NAMES,
-    RESET,
-    TEXT_FG,
+    color_palette,
     dst_delta_hours,
-    fetch_yearly_table,
+    fetch_tables,
     get_days_in_month,
+    location_timezone,
     parse_args,
     parse_table,
+    print_table,
     shift_time,
+    standard_offset_hours,
     time_to_minutes,
 )
+
+# USNO tables a night is built from: sunrise/sunset, moonrise/moonset, astronomical twilight
+NIGHT_TABLES = (0, 1, 4)
+
+NIGHT_HEADERS = ["Sunset", "Twi End", "Moon", "Moon Event", "Twi Start", "Dark Sky", "Rating"]
 
 
 def format_moon_event(event_type, event_time, is_next_day, delta_hours):
@@ -195,25 +194,25 @@ def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_
         return ("Unknown", None)
 
 
-def display_month(
-    year,
-    month,
-    sun_html,
-    moon_html,
-    twilight_html,
-    colors,
-    tz_name,
-    baseline_offset_hours,
-):
-    """Parse and display astronomical data for a single month.
+class Night(NamedTuple):
+    date: date
+    sunset: str
+    twilight_end: str
+    moon_state: str
+    moon_event: str
+    next_twilight: str  # the following morning's astronomical twilight start
+    dark_length: str
+    rating: str
+
+
+def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baseline_offset_hours):
+    """One Night per day of a month, from the three USNO yearly tables.
 
     USNO data comes back in a single fixed offset (baseline_offset_hours). All
     state/event/duration logic runs on those unshifted values, where USNO's
     day bucketing is internally consistent; only the displayed clock times are
     converted to each date's actual local (DST-aware) offset.
     """
-    reset, bg_dark, bg_light, header_bg, header_fg, text_fg = colors
-
     sun_data = parse_table(sun_html, month)
     moon_data = parse_table(moon_html, month)
     twilight_data = parse_table(twilight_html, month)
@@ -224,9 +223,7 @@ def display_month(
 
     num_days = get_days_in_month(year, month)
 
-    print()
-
-    rows = []
+    nights = []
     for day in range(1, num_days + 1):
         sun = sun_data.get(day, ("N/A", "N/A"))
         moon = moon_data.get(day, ("N/A", "N/A"))
@@ -288,9 +285,9 @@ def display_month(
             hours = int(dark_length.split(":")[0])
             rating = "★" * hours
 
-        rows.append(
-            [
-                f"{MONTH_NAMES[month][:3]} {day:2d}",
+        nights.append(
+            Night(
+                date(year, month, day),
                 sunset,
                 twilight_end,
                 moon_state,
@@ -298,64 +295,25 @@ def display_month(
                 next_morning_twilight,
                 dark_length,
                 rating,
-            ]
+            )
         )
 
-    headers = [
-        "Date",
-        "Sunset",
-        "Twi End",
-        "Moon",
-        "Moon Event",
-        "Twi Start",
-        "Dark Sky",
-        "Rating",
-    ]
+    return nights
 
-    # Get column widths from tabulate
-    table_str = tabulate(rows, headers=headers, tablefmt="simple")
-    lines = table_str.split("\n")
 
-    # Find max width for full-width coloring
-    max_width = max(len(line) for line in lines)
-
-    # Print month title and header with color
-    month_title = f"{MONTH_NAMES[month]} {year}"
-    print(f"{header_bg}{header_fg}{month_title:<{max_width}}{reset}")
-    print(f"{header_bg}{header_fg}{lines[0]:<{max_width}}{reset}")
-    print(f"{header_bg}{header_fg}{lines[1]:<{max_width}}{reset}")
-
-    # Print data rows with alternating colors
-    for i, line in enumerate(lines[2:]):
-        padded_line = f"{line:<{max_width}}"
-        if i % 2 == 0:
-            print(f"{bg_dark}{text_fg}{padded_line}{reset}")
-        else:
-            print(f"{bg_light}{text_fg}{padded_line}{reset}")
+def display_month(year, month, nights, colors):
+    """Display a month of nights as a colored table."""
+    print()
+    rows = [[f"{MONTH_NAMES[month][:3]} {night.date.day:2d}", *night[1:]] for night in nights]
+    print_table([f"{MONTH_NAMES[month]} {year}"], ["Date", *NIGHT_HEADERS], rows, colors)
 
 
 def main():
     """Fetch and display astronomical data."""
     lat, lon, year, month, no_color, no_cache = parse_args()
 
-    # Compute timezone from lat/long
-    tf = TimezoneFinder()
-    tz_name = tf.timezone_at(lat=lat, lng=lon)
-    if tz_name is None:
-        print(f"Error: could not determine timezone for {lat}, {lon}", file=sys.stderr)
-        sys.exit(1)
-
-    # Use January 1 to get standard (non-DST) offset
-    dt = datetime(year, 1, 1, tzinfo=ZoneInfo(tz_name))
-    offset_hours = dt.utcoffset().total_seconds() / 3600
-    tz_value = int(abs(offset_hours))
-    tz_sign = -1 if offset_hours <= 0 else 1
-
-    # Set color codes based on --no-color flag
-    if no_color:
-        colors = ("", "", "", "", "", "")
-    else:
-        colors = (RESET, BG_DARK_BLUE, BG_LIGHT_BLUE, HEADER_BG, HEADER_FG, TEXT_FG)
+    tz_name = location_timezone(lat, lon)
+    offset_hours = standard_offset_hours(tz_name, year)
 
     lat_dir = "N" if lat >= 0 else "S"
     lon_dir = "E" if lon >= 0 else "W"
@@ -364,28 +322,13 @@ def main():
     print(f"Timezone: {tz_name} (UTC{offset_hours:+.0f})")
     print()
 
-    # Fetch all three tables
-    print("Fetching sunrise/sunset table...")
-    sun_html = fetch_yearly_table(0, year, lat, lon, tz_value, tz_sign, no_cache)
-
-    print("Fetching moonrise/moonset table...")
-    moon_html = fetch_yearly_table(1, year, lat, lon, tz_value, tz_sign, no_cache)
-
-    print("Fetching astronomical twilight table...")
-    twilight_html = fetch_yearly_table(4, year, lat, lon, tz_value, tz_sign, no_cache)
-
-    if not sun_html or not moon_html or not twilight_html:
+    tables = fetch_tables(NIGHT_TABLES, year, lat, lon, offset_hours, no_cache)
+    if tables is None:
         print("Failed to fetch one or more tables.")
         return
 
-    # Determine which months to display
-    if month:
-        months = [month]
-    else:
-        months = list(range(1, 13))
-
-    for m in months:
-        display_month(year, m, sun_html, moon_html, twilight_html, colors, tz_name, offset_hours)
+    for m in [month] if month else range(1, 13):
+        display_month(year, m, night_rows(year, m, *tables, tz_name, offset_hours), color_palette(no_color))
 
 
 if __name__ == "__main__":
