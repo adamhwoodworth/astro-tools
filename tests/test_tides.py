@@ -488,7 +488,7 @@ def test_single_day_prints_only_that_day():
     assert result.returncode == 0, f"stderr: {result.stderr}"
 
     assert 3 <= len(table_rows(result.stdout)) <= 5
-    assert days_shown(result.stdout) == ["Sun Oct 04"]
+    assert days_shown(result.stdout) == ["Sun Oct  4"]
 
 
 def test_plus_n_prints_that_many_days_from_the_start_date():
@@ -497,7 +497,7 @@ def test_plus_n_prints_that_many_days_from_the_start_date():
 
     days = days_shown(result.stdout)
     assert len(days) == 7
-    assert (days[0], days[-1]) == ("Sun Aug 29", "Sat Sep 04")
+    assert (days[0], days[-1]) == ("Sun Aug 29", "Sat Sep  4")
 
 
 def test_heights_are_right_aligned_so_negative_lows_line_up():

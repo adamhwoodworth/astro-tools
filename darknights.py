@@ -7,6 +7,7 @@ sunrise/sunset, moonrise/moonset, and astronomical twilight data.
 from astro_tools.common import (
     MONTH_NAMES,
     color_palette,
+    day_label,
     format_utc_offset,
     location_timezone,
     parse_args,
@@ -20,7 +21,7 @@ from astro_tools.nights import NIGHT_HEADERS, fetch_night_tables, nights_between
 def display_month(year, month, nights, colors):
     """Display a month of nights as a colored table."""
     print()
-    rows = [[f"{MONTH_NAMES[month][:3]} {night.date.day:2d}", *night[1:]] for night in nights]
+    rows = [[day_label(night.date), *night[1:]] for night in nights]
     print_table([f"{MONTH_NAMES[month]} {year}"], ["Date", *NIGHT_HEADERS], rows, colors)
 
 

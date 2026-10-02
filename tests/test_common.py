@@ -11,6 +11,7 @@ import pytest
 
 from astro_tools.common import (
     color_palette,
+    day_label,
     format_time,
     format_utc_offset,
     get_days_in_month,
@@ -241,3 +242,14 @@ def test_days_without_a_date_start_today():
 
 def test_days_with_only_a_month_start_on_its_first_day():
     assert resolve_date_range(2027, 8, None, TODAY, days=10) == (date(2027, 8, 1), date(2027, 8, 10))
+
+
+# --- day_label ---------------------------------------------------------------
+
+
+def test_day_label_pads_single_digit_days_with_a_space():
+    assert day_label(date(2026, 6, 1)) == "Mon Jun  1"
+
+
+def test_day_label_two_digit_day():
+    assert day_label(date(2026, 12, 31)) == "Thu Dec 31"

@@ -19,6 +19,7 @@ import requests
 
 from astro_tools.common import (
     CACHE_DIR,
+    day_label,
 )
 
 NOAA_STATIONS_URL = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json"
@@ -195,7 +196,7 @@ def build_rows(events, tz, units):
             height = f"{round(event.metres * FEET_PER_METRE, 1) + 0.0:.1f}"
         else:
             height = f"{round(event.metres, 2) + 0.0:.2f}"
-        rows.append([local.strftime("%a %b %d"), local.strftime("%H:%M"), event.kind, height])
+        rows.append([day_label(local), local.strftime("%H:%M"), event.kind, height])
     return rows
 
 

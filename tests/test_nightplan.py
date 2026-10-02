@@ -78,7 +78,7 @@ def test_single_day_shows_station_tides_and_the_verified_night():
     assert result.returncode == 0, f"stderr: {result.stderr}"
 
     assert "Station: " in result.stdout
-    day = next(line for line in result.stdout.split("\n") if line.startswith("Thu Jun 04"))
+    day = next(line for line in result.stdout.split("\n") if line.startswith("Thu Jun  4"))
     # Night columns match the verified darknights fixture row for Jun 4.
     for value in ("20:09", "22:35", "Down", "Moonrise 23:42", "02:18", "1:07"):
         assert value in day
@@ -89,7 +89,7 @@ def test_range_across_new_year_shows_both_days():
     result = run_nightplan("44.81,-66.95", "2026", "dec", "31", "+2")
     assert result.returncode == 0, f"stderr: {result.stderr}"
     dated = [line[:10] for line in result.stdout.split("\n") if line[:3] in ("Thu", "Fri")]
-    assert dated == ["Thu Dec 31", "Fri Jan 01"]
+    assert dated == ["Thu Dec 31", "Fri Jan  1"]
 
 
 def test_december_31_night_uses_next_years_moonrise():

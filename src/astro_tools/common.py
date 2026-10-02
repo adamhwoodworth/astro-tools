@@ -287,6 +287,11 @@ def parse_args():
     return lat, lon, year, month, no_color, no_cache
 
 
+def day_label(day):
+    """A date as a table cell: weekday, month and space-padded day, e.g. "Mon Jun  1"."""
+    return f"{day:%a %b} {day.day:2d}"
+
+
 def get_days_in_month(year, month):
     """Return the number of days in a given month/year."""
     days = {

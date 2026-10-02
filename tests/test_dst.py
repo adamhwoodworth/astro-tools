@@ -22,8 +22,9 @@ def run_cli(*args):
     )
 
 
-def july_row(output, label):
-    return next(line for line in output.splitlines() if line.strip().startswith(label))
+def table_row(output, label):
+    """The table row for a "Mon  d" date label, skipping the weekday prefix."""
+    return next(line for line in output.splitlines() if line.strip()[4:].startswith(label))
 
 
 def test_july_clock_times_are_dst_corrected():
@@ -32,7 +33,7 @@ def test_july_clock_times_are_dst_corrected():
     result = run_cli("44.81,-66.95", "2026", "jul", "--no-color")
     assert result.returncode == 0, result.stderr
 
-    row = july_row(result.stdout, "Jul  1")
+    row = table_row(result.stdout, "Jul  1")
     assert "20:17" in row, row
     assert "22:46" in row, row
     assert "19:17" not in row, row
@@ -43,8 +44,8 @@ def test_july_dark_sky_durations_unchanged_by_shift():
     result = run_cli("44.81,-66.95", "2026", "jul", "--no-color")
     assert result.returncode == 0, result.stderr
 
-    assert "0:06" in july_row(result.stdout, "Jul  4")
-    assert "Never Dark" in july_row(result.stdout, "Jul  1")
+    assert "0:06" in table_row(result.stdout, "Jul  4")
+    assert "Never Dark" in table_row(result.stdout, "Jul  1")
 
 
 def test_shift_time_adds_hour():
@@ -103,8 +104,8 @@ def test_moon_event_na_passes_through():
 def test_july_late_evening_moon_events_labeled_next_day():
     result = run_cli("44.81,-66.95", "2026", "jul", "--no-color")
     assert result.returncode == 0, result.stderr
-    assert "(next day)" in july_row(result.stdout, "Jul  8")  # Moonrise 00:10
-    assert "(next day)" in july_row(result.stdout, "Jul 24")  # Moonset 00:58
+    assert "(next day)" in table_row(result.stdout, "Jul  8")  # Moonrise 00:10
+    assert "(next day)" in table_row(result.stdout, "Jul 24")  # Moonset 00:58
 
 
 def test_half_hour_zone_times_are_not_shifted_by_30_minutes():
@@ -113,8 +114,7 @@ def test_half_hour_zone_times_are_not_shifted_by_30_minutes():
     result = run_cli("47.56,-52.71", "2026", "jan", "--no-color")
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "Timezone: America/St_Johns (UTC-3:30)" in result.stdout
-    jan_1 = next(line for line in result.stdout.split("\n") if line.startswith("Jan  1"))
-    assert jan_1.split()[3] == "16:20"
+    assert table_row(result.stdout, "Jan  1").split()[4] == "16:20"
 
 
 def test_december_31_uses_next_years_tables():
@@ -122,5 +122,5 @@ def test_december_31_uses_next_years_tables():
     # sky); 2026-01-01's moonrise, a year too early, is 13:44.
     result = run_cli("44.81,-66.95", "2026", "dec", "--no-color")
     assert result.returncode == 0, f"stderr: {result.stderr}"
-    dec_31 = next(line for line in result.stdout.split("\n") if line.startswith("Dec 31"))
+    dec_31 = table_row(result.stdout, "Dec 31")
     assert "Moonrise 01:25 (next day)" in dec_31 and "7:42" in dec_31

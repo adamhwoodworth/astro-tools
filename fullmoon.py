@@ -10,9 +10,12 @@ filenames, and --no-cache behavior are identical (and the two tools share any
 already-downloaded sun/moon tables).
 """
 
+from datetime import date
+
 from astro_tools.common import (
     MONTH_NAMES,
     color_palette,
+    day_label,
     dst_delta_hours,
     fetch_tables,
     format_utc_offset,
@@ -100,7 +103,7 @@ def build_rows(year, months, sun_html, moon_html, tz_name, baseline_offset_hours
             for event_type, moon_time, sun_time, diff in events:
                 rows.append(
                     [
-                        f"{MONTH_NAMES[month][:3]} {day:2d}",
+                        day_label(date(year, month, day)),
                         event_type,
                         shift_time(moon_time, delta),
                         shift_time(sun_time, delta),

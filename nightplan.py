@@ -18,6 +18,7 @@ import requests
 from astro_tools.common import (
     color_palette,
     date_range_parser,
+    day_label,
     location_timezone,
     parse_date_range_args,
     print_table,
@@ -47,7 +48,7 @@ def plan_rows(nights, events, tz, units):
         day_events = events_by_date.get(night.date, [])
         tides = [row[1:] for row in build_rows(day_events, tz, units)] or [["", "", ""]]
 
-        rows.append([night.date.strftime("%a %b %d"), *tides[0], *night[1:]])
+        rows.append([day_label(night.date), *tides[0], *night[1:]])
         rows += [["", *tide, *[""] * len(NIGHT_HEADERS)] for tide in tides[1:]]
         bands += [band % 2] * len(tides)
     return rows, bands

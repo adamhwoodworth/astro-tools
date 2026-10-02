@@ -67,36 +67,36 @@ Fetching moonrise/moonset table...
 Fetching astronomical twilight table...
 
 February 2026
-Date    Sunrise    Sunset    Twi End    Moon    Moon Event                 Twi Start    Dark Sky    Rating
-------  ---------  --------  ---------  ------  -------------------------  -----------  ----------  ----------
-Feb  1  06:47      16:36     18:17      Up      Moonset 07:19 (next day)   05:06        Never Dark
-Feb  2  06:46      16:38     18:18      Up      Moonset 07:41 (next day)   05:05        Never Dark
-Feb  3  06:45      16:39     18:19      Down    Moonrise 18:56             05:04        0:37
-Feb  4  06:43      16:41     18:20      Down    Moonrise 20:07             05:02        1:47        ★
-Feb  5  06:42      16:42     18:22      Down    Moonrise 21:16             05:01        2:54        ★★
-Feb  6  06:41      16:43     18:23      Down    Moonrise 22:23             05:00        4:00        ★★★★
-Feb  7  06:40      16:45     18:24      Down    Moonrise 23:30             04:59        5:06        ★★★★★
-Feb  8  06:38      16:46     18:25      Down    Moonrise 00:37 (next day)  04:58        6:12        ★★★★★★
-Feb  9  06:37      16:48     18:27      Down    Moonrise 01:43 (next day)  04:57        7:16        ★★★★★★★
-Feb 10  16:49     18:28      Down    Moonrise 02:46 (next day)  04:55        8:18        ★★★★★★★★
-Feb 11  16:50     18:29      Down    Moonrise 03:44 (next day)  04:54        9:15        ★★★★★★★★★
-Feb 12  16:52     18:31      Down    Moonrise 04:33 (next day)  04:53        10:02       ★★★★★★★★★★
-Feb 13  16:53     18:32      Down    Moonrise 05:14 (next day)  04:51        10:19       ★★★★★★★★★★
-Feb 14  16:55     18:33      Down    Moonrise 05:47 (next day)  04:50        10:17       ★★★★★★★★★★
-Feb 15  16:56     18:34      Down    Moonrise 06:13 (next day)  04:49        10:15       ★★★★★★★★★★
-Feb 16  16:58     18:36      Down    Moonrise 06:35 (next day)  04:47        10:11       ★★★★★★★★★★
-Feb 17  16:59     18:37      Down    Moonrise 06:55 (next day)  04:46        10:09       ★★★★★★★★★★
-Feb 18  17:00     18:38      Down    Moonrise 07:14 (next day)  04:44        10:06       ★★★★★★★★★★
-Feb 19  17:02     18:40      Up      Moonset 19:47              04:43        8:56        ★★★★★★★★
-Feb 20  17:03     18:41      Up      Moonset 21:02              04:41        7:39        ★★★★★★★
-Feb 21  17:05     18:42      Up      Moonset 22:20              04:40        6:20        ★★★★★★
-Feb 22  17:06     18:44      Up      Moonset 23:40              04:38        4:58        ★★★★
-Feb 23  17:07     18:45      Up      Moonset 01:00 (next day)   04:37        3:37        ★★★
-Feb 24  17:09     18:46      Up      Moonset 02:15 (next day)   04:35        2:20        ★★
-Feb 25  17:10     18:47      Up      Moonset 03:20 (next day)   04:33        1:13        ★
-Feb 26  17:11     18:49      Up      Moonset 04:11 (next day)   04:32        0:21
-Feb 27  17:13     18:50      Up      Moonset 04:50 (next day)   04:30        Never Dark
-Feb 28  17:14     18:51      Up      Moonset 05:20 (next day)   04:28        Never Dark
+Date        Sunrise    Sunset    Twi End    Moon    Moon Event                 Twi Start    Dark Sky    Rating
+----------  ---------  --------  ---------  ------  -------------------------  -----------  ----------  ----------
+Sun Feb  1  06:47      16:36     18:17      Up      Moonset 07:19 (next day)   05:06        Never Dark
+Mon Feb  2  06:46      16:38     18:18      Up      Moonset 07:41 (next day)   05:05        Never Dark
+Tue Feb  3  06:45      16:39     18:19      Down    Moonrise 18:56             05:04        0:37
+Wed Feb  4  06:43      16:41     18:20      Down    Moonrise 20:07             05:02        1:47        ★
+Thu Feb  5  06:42      16:42     18:22      Down    Moonrise 21:16             05:01        2:54        ★★
+Fri Feb  6  06:41      16:43     18:23      Down    Moonrise 22:23             05:00        4:00        ★★★★
+Sat Feb  7  06:40      16:45     18:24      Down    Moonrise 23:30             04:59        5:06        ★★★★★
+Sun Feb  8  06:38      16:46     18:25      Down    Moonrise 00:37 (next day)  04:58        6:12        ★★★★★★
+Mon Feb  9  06:37      16:48     18:27      Down    Moonrise 01:43 (next day)  04:57        7:16        ★★★★★★★
+Tue Feb 10  06:35      16:49     18:28      Down    Moonrise 02:46 (next day)  04:55        8:18        ★★★★★★★★
+Wed Feb 11  06:34      16:50     18:29      Down    Moonrise 03:44 (next day)  04:54        9:15        ★★★★★★★★★
+Thu Feb 12  06:33      16:52     18:31      Down    Moonrise 04:33 (next day)  04:53        10:02       ★★★★★★★★★★
+Fri Feb 13  06:31      16:53     18:32      Down    Moonrise 05:14 (next day)  04:51        10:19       ★★★★★★★★★★
+Sat Feb 14  06:30      16:55     18:33      Down    Moonrise 05:47 (next day)  04:50        10:17       ★★★★★★★★★★
+Sun Feb 15  06:28      16:56     18:34      Down    Moonrise 06:13 (next day)  04:49        10:15       ★★★★★★★★★★
+Mon Feb 16  06:27      16:58     18:36      Down    Moonrise 06:35 (next day)  04:47        10:11       ★★★★★★★★★★
+Tue Feb 17  06:25      16:59     18:37      Down    Moonrise 06:55 (next day)  04:46        10:09       ★★★★★★★★★★
+Wed Feb 18  06:24      17:00     18:38      Down    Moonrise 07:14 (next day)  04:44        10:06       ★★★★★★★★★★
+Thu Feb 19  06:22      17:02     18:40      Up      Moonset 19:47              04:43        8:56        ★★★★★★★★
+Fri Feb 20  06:20      17:03     18:41      Up      Moonset 21:02              04:41        7:39        ★★★★★★★
+Sat Feb 21  06:19      17:05     18:42      Up      Moonset 22:20              04:40        6:20        ★★★★★★
+Sun Feb 22  06:17      17:06     18:44      Up      Moonset 23:40              04:38        4:58        ★★★★
+Mon Feb 23  06:16      17:07     18:45      Up      Moonset 01:00 (next day)   04:37        3:37        ★★★
+Tue Feb 24  06:14      17:09     18:46      Up      Moonset 02:15 (next day)   04:35        2:20        ★★
+Wed Feb 25  06:12      17:10     18:47      Up      Moonset 03:20 (next day)   04:33        1:13        ★
+Thu Feb 26  06:10      17:11     18:49      Up      Moonset 04:11 (next day)   04:32        0:21
+Fri Feb 27  06:09      17:13     18:50      Up      Moonset 04:50 (next day)   04:30        Never Dark
+Sat Feb 28  06:07      17:14     18:51      Up      Moonset 05:20 (next day)   04:28        Never Dark
 ```
 
 ## fullmoon.py
@@ -148,14 +148,14 @@ Fetching sunrise/sunset table...
 Fetching moonrise/moonset table...
 
 Moonrise↔sunset & moonset↔sunrise windows · June 2026
-Date    Event              Moon    Sun      Diff  Rating
-------  -----------------  ------  -----  ------  --------
-Jun  1  Moonset / Sunrise  05:04   04:45      19  ★★
-Jun 28  Moonrise / Sunset  19:51   20:18      27  ★★
-Jun 29  Moonset / Sunrise  03:52   04:45      53  ★
-Jun 29  Moonrise / Sunset  20:37   20:18      19  ★★
-Jun 30  Moonset / Sunrise  04:51   04:45       6  ★★★
-Jun 30  Moonrise / Sunset  21:15   20:18      57  ★
+Date        Event              Moon    Sun      Diff  Rating
+----------  -----------------  ------  -----  ------  --------
+Mon Jun  1  Moonset / Sunrise  05:04   04:45      19  ★★
+Sun Jun 28  Moonrise / Sunset  19:51   20:18      27  ★★
+Mon Jun 29  Moonset / Sunrise  03:52   04:45      53  ★
+Mon Jun 29  Moonrise / Sunset  20:37   20:18      19  ★★
+Tue Jun 30  Moonset / Sunrise  04:51   04:45       6  ★★★
+Tue Jun 30  Moonrise / Sunset  21:15   20:18      57  ★
 ```
 
 ## tides.py
