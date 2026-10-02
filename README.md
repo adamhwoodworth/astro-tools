@@ -15,7 +15,7 @@ The pre-commit hook formats the staged Python files with `ruff format`, re-stage
 
 ## darknights.py
 
-Displays astronomical data for planning astrophotography sessions. Shows sunset, twilight times, moon state, and dark sky duration for each night.
+Displays astronomical data for planning astrophotography sessions. Shows sunrise, sunset, twilight times, moon state, and dark sky duration for each night.
 
 Uses data from the US Naval Observatory to calculate when the moon is below the horizon during astronomical twilight, helping identify the best nights for imaging.
 
@@ -67,17 +67,17 @@ Fetching moonrise/moonset table...
 Fetching astronomical twilight table...
 
 February 2026
-Date    Sunset    Twi End    Moon    Moon Event                 Twi Start    Dark Sky    Rating
-------  --------  ---------  ------  -------------------------  -----------  ----------  ----------
-Feb  1  16:36     18:17      Up      Moonset 07:19 (next day)   05:06        Never Dark
-Feb  2  16:38     18:18      Up      Moonset 07:41 (next day)   05:05        Never Dark
-Feb  3  16:39     18:19      Down    Moonrise 18:56             05:04        0:37
-Feb  4  16:41     18:20      Down    Moonrise 20:07             05:02        1:47        ★
-Feb  5  16:42     18:22      Down    Moonrise 21:16             05:01        2:54        ★★
-Feb  6  16:43     18:23      Down    Moonrise 22:23             05:00        4:00        ★★★★
-Feb  7  16:45     18:24      Down    Moonrise 23:30             04:59        5:06        ★★★★★
-Feb  8  16:46     18:25      Down    Moonrise 00:37 (next day)  04:58        6:12        ★★★★★★
-Feb  9  16:48     18:27      Down    Moonrise 01:43 (next day)  04:57        7:16        ★★★★★★★
+Date    Sunrise    Sunset    Twi End    Moon    Moon Event                 Twi Start    Dark Sky    Rating
+------  ---------  --------  ---------  ------  -------------------------  -----------  ----------  ----------
+Feb  1  06:47      16:36     18:17      Up      Moonset 07:19 (next day)   05:06        Never Dark
+Feb  2  06:46      16:38     18:18      Up      Moonset 07:41 (next day)   05:05        Never Dark
+Feb  3  06:45      16:39     18:19      Down    Moonrise 18:56             05:04        0:37
+Feb  4  06:43      16:41     18:20      Down    Moonrise 20:07             05:02        1:47        ★
+Feb  5  06:42      16:42     18:22      Down    Moonrise 21:16             05:01        2:54        ★★
+Feb  6  06:41      16:43     18:23      Down    Moonrise 22:23             05:00        4:00        ★★★★
+Feb  7  06:40      16:45     18:24      Down    Moonrise 23:30             04:59        5:06        ★★★★★
+Feb  8  06:38      16:46     18:25      Down    Moonrise 00:37 (next day)  04:58        6:12        ★★★★★★
+Feb  9  06:37      16:48     18:27      Down    Moonrise 01:43 (next day)  04:57        7:16        ★★★★★★★
 Feb 10  16:49     18:28      Down    Moonrise 02:46 (next day)  04:55        8:18        ★★★★★★★★
 Feb 11  16:50     18:29      Down    Moonrise 03:44 (next day)  04:54        9:15        ★★★★★★★★★
 Feb 12  16:52     18:31      Down    Moonrise 04:33 (next day)  04:53        10:02       ★★★★★★★★★★
@@ -228,7 +228,7 @@ Each day's date is printed once, on its first tide, and the colored background a
 
 ## nightplan.py
 
-Combines `tides.py` and `darknights.py`: for each day, the high and low tides at the nearest tide station alongside that night's sunset, astronomical twilight, moon state, and dark sky duration. Useful for planning night photography on the coast, where both the tide and the darkness matter.
+Combines `tides.py` and `darknights.py`: for each day, the high and low tides at the nearest tide station alongside that day's sunrise and that night's sunset, astronomical twilight, moon state, and dark sky duration. Useful for planning night photography on the coast, where both the tide and the darkness matter.
 
 Each day is one block. Its first row carries the date, the day's first tide, and the night's columns (the same ones `darknights.py` shows); the day's remaining tides follow beneath. The colored background alternates by day. All times are in the location's time zone.
 
@@ -272,12 +272,12 @@ Fetching astronomical twilight table...
 
 Station: Welshpool (CHS 00015) — 5.5 mi from 44.8100, -66.9500
 Heights in ft above chart datum, times America/New_York
-Date        Time    Tide      Height  Sunset    Twi End    Moon    Moon Event                Twi Start    Dark Sky    Rating
-----------  ------  ------  --------  --------  ---------  ------  ------------------------  -----------  ----------  --------
-Sat Sep 19  05:28   High        18.0  18:31     20:10      Up      Moonset 23:20             04:33        5:13        ★★★★★
+Date        Time    Tide      Height  Sunrise    Sunset    Twi End    Moon    Moon Event                Twi Start    Dark Sky    Rating
+----------  ------  ------  --------  ---------  --------  ---------  ------  ------------------------  -----------  ----------  --------
+Sat Sep 19  05:28   High        18.0  06:11      18:31     20:10      Up      Moonset 23:20             04:33        5:13        ★★★★★
             11:42   Low          6.1
             17:49   High        18.9
-Sun Sep 20  00:20   Low          5.2  18:29     20:08      Up      Moonset 00:24 (next day)  04:35        4:11        ★★★★
+Sun Sep 20  00:20   Low          5.2  06:13      18:29     20:08      Up      Moonset 00:24 (next day)  04:35        4:11        ★★★★
             06:24   High        17.8
             12:39   Low          6.2
             18:46   High        18.8

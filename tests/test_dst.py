@@ -114,7 +114,7 @@ def test_half_hour_zone_times_are_not_shifted_by_30_minutes():
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "Timezone: America/St_Johns (UTC-3:30)" in result.stdout
     jan_1 = next(line for line in result.stdout.split("\n") if line.startswith("Jan  1"))
-    assert jan_1.split()[2] == "16:20"
+    assert jan_1.split()[3] == "16:20"
 
 
 def test_december_31_uses_next_years_tables():

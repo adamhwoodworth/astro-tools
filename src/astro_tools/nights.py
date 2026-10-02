@@ -1,6 +1,7 @@
 """
-Nights built from the US Naval Observatory yearly tables: sunset, astronomical
-twilight, the moon's state and next event, and the length of moonless dark sky.
+Nights built from the US Naval Observatory yearly tables: sunrise, sunset,
+astronomical twilight, the moon's state and next event, and the length of
+moonless dark sky.
 Used by darknights.py and nightplan.py.
 """
 
@@ -24,7 +25,7 @@ NIGHT_TABLES = (0, 1, 4)
 # The following year's tables that the night of December 31 needs: moon and twilight
 NEXT_YEAR_TABLES = (1, 4)
 
-NIGHT_HEADERS = ["Sunset", "Twi End", "Moon", "Moon Event", "Twi Start", "Dark Sky", "Rating"]
+NIGHT_HEADERS = ["Sunrise", "Sunset", "Twi End", "Moon", "Moon Event", "Twi Start", "Dark Sky", "Rating"]
 
 
 def format_moon_event(event_type, event_time, is_next_day, delta_hours):
@@ -195,6 +196,7 @@ def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_
 
 class Night(NamedTuple):
     date: date
+    sunrise: str  # that morning, i.e. before the night begins
     sunset: str
     twilight_end: str
     moon_state: str
@@ -246,7 +248,7 @@ def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baselin
             next_moon = moon_data.get(next_day, ("N/A", "N/A"))
             next_twilight = twilight_data.get(next_day, ("N/A", "N/A"))
 
-        sunset = sun[1]
+        sunrise, sunset = sun
         moonrise = moon[0]
         moonset = moon[1]
         twilight_end = twilight[1]
@@ -258,8 +260,8 @@ def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baselin
         dark_length = calc_dark_sky_length(moon_state, event_info, twilight_end, next_morning_twilight)
 
         # DST-correct only the displayed clock times. Each value is shifted by
-        # the delta for the date it belongs to: the row's date for sunset and
-        # twilight end, the following date for the next morning's twilight and
+        # the delta for the date it belongs to: the row's date for sunrise,
+        # sunset and twilight end, the following date for the next morning's twilight and
         # any "(next day)" moon event.
         cur_delta = dst_delta_hours(tz_name, year, month, day, baseline_offset_hours)
         next_date = datetime(year, month, day) + timedelta(days=1)
@@ -271,6 +273,7 @@ def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baselin
             baseline_offset_hours,
         )
 
+        sunrise = shift_time(sunrise, cur_delta)
         sunset = shift_time(sunset, cur_delta)
         twilight_end = shift_time(twilight_end, cur_delta)
         next_morning_twilight = shift_time(next_morning_twilight, next_delta)
@@ -296,6 +299,7 @@ def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baselin
         nights.append(
             Night(
                 date(year, month, day),
+                sunrise,
                 sunset,
                 twilight_end,
                 moon_state,

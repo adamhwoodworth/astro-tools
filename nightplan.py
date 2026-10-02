@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Plan nights at the coast: for each day, the high/low tides at the nearest tide
-station alongside that night's sunset, astronomical twilight, moon, and dark
-sky duration.
+station alongside that day's sunrise and that night's sunset, astronomical
+twilight, moon, and dark sky duration.
 
 Combines tides.py (NOAA/CHS tide predictions) and darknights.py (US Naval
 Observatory tables), and takes the same date arguments as tides.py. All times

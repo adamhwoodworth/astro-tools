@@ -24,12 +24,14 @@ def test_one_night_per_day_of_the_month():
 
 
 def test_night_with_a_moonrise_during_darkness():
-    assert june_nights()[3] == Night(date(2026, 6, 4), "20:09", "22:35", "Down", "Moonrise 23:42", "02:18", "1:07", "★")
+    assert june_nights()[3] == Night(
+        date(2026, 6, 4), "04:44", "20:09", "22:35", "Down", "Moonrise 23:42", "02:18", "1:07", "★"
+    )
 
 
 def test_night_that_is_never_dark():
     assert june_nights()[27] == Night(
-        date(2026, 6, 28), "20:18", "22:48", "Up", "Moonset 03:52 (next day)", "02:14", "Never Dark", ""
+        date(2026, 6, 28), "04:44", "20:18", "22:48", "Up", "Moonset 03:52 (next day)", "02:14", "Never Dark", ""
     )
 
 
@@ -49,13 +51,13 @@ def december_nights(next_year_tables):
 def test_december_31_uses_the_following_years_tables():
     next_year = [(FIXTURES_DIR / f"usno_2027_{name}.html").read_text() for name in ("moon", "twilight")]
     assert december_nights(next_year)[30] == Night(
-        date(2026, 12, 31), "15:57", "17:43", "Down", "Moonrise 01:25 (next day)", "05:19", "7:42", "★★★★★★★"
+        date(2026, 12, 31), "07:05", "15:57", "17:43", "Down", "Moonrise 01:25 (next day)", "05:19", "7:42", "★★★★★★★"
     )
 
 
 def test_december_31_without_next_years_tables_is_unknown_not_last_januarys():
     assert december_nights(None)[30] == Night(
-        date(2026, 12, 31), "15:57", "17:43", "Down", "Moonrise N/A", "N/A", "N/A", ""
+        date(2026, 12, 31), "07:05", "15:57", "17:43", "Down", "Moonrise N/A", "N/A", "N/A", ""
     )
 
 

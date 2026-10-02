@@ -16,8 +16,10 @@ from nightplan import plan_rows
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 NEW_YORK = ZoneInfo("America/New_York")
 
-SAT = Night(date(2026, 9, 19), "18:41", "20:22", "Down", "Moonrise 13:02 (next day)", "04:41", "8:19", "★★★★★★★★")
-SUN = Night(date(2026, 9, 20), "18:39", "20:20", "Down", "", "04:42", "8:22", "★★★★★★★★")
+SAT = Night(
+    date(2026, 9, 19), "06:22", "18:41", "20:22", "Down", "Moonrise 13:02 (next day)", "04:41", "8:19", "★★★★★★★★"
+)
+SUN = Night(date(2026, 9, 20), "06:23", "18:39", "20:20", "Down", "", "04:42", "8:22", "★★★★★★★★")
 
 EVENTS = [
     TideEvent(datetime(2026, 9, 19, 9, 28, tzinfo=UTC), "High", 5.486),
@@ -38,7 +40,7 @@ def test_first_tide_row_of_a_day_carries_the_night():
 
 def test_later_tide_rows_leave_date_and_night_blank():
     rows, _ = plan_rows([SAT], EVENTS[:2], NEW_YORK, "ft")
-    assert rows[1] == ["", "11:42", "Low", "6.1", "", "", "", "", "", "", ""]
+    assert rows[1] == ["", "11:42", "Low", "6.1", "", "", "", "", "", "", "", ""]
 
 
 def test_tides_are_assigned_by_local_date():
