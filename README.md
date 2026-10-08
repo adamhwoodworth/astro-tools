@@ -54,6 +54,10 @@ Options:
 - `--no-color`: Disable ANSI color codes in output
 - `--no-cache`: Bypass cache and fetch fresh data from USNO
 
+Dark sky is the time between the end of evening astronomical twilight and its start the next morning when the moon is down. `Moon` and `Moon Event` give the moon's state at twilight end and its next rise or set. A time marked `(next day)` falls after midnight; `Twi Start` is always the next morning.
+
+Far enough north (or south) around midsummer, the sun never gets 18° below the horizon, so the night never gets astronomically dark. Such nights show `None` for `Twi End` and `Twi Start` and `Never Dark` for dark sky, and the moon is read at sunset instead. Near those dates, twilight can end after midnight; `Twi End` then shows `(next day)`.
+
 ### Example Output
 
 ```

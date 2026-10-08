@@ -3,10 +3,15 @@ Nights built from the US Naval Observatory yearly tables: sunrise, sunset,
 astronomical twilight, the moon's state and next event, and the length of
 moonless dark sky.
 Used by darknights.py and nightplan.py.
+
+A night's times are counted in minutes from midnight at the start of its date,
+in the fixed offset the tables were fetched in, so a time after midnight is
+24:00 or later. A night runs from noon to the next noon, which takes in an
+evening twilight that ends after midnight.
 """
 
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import NamedTuple
 
 from astro_tools.common import (
@@ -14,6 +19,7 @@ from astro_tools.common import (
     fetch_tables,
     get_days_in_month,
     parse_table,
+    parse_table_events,
     shift_time,
     standard_offset_hours,
     time_to_minutes,
@@ -27,27 +33,28 @@ NEXT_YEAR_TABLES = (1, 4)
 
 NIGHT_HEADERS = ["Sunrise", "Sunset", "Twi End", "Moon", "Moon Event", "Twi Start", "Dark Sky", "Rating"]
 
+DAY = 24 * 60
+NOON = 12 * 60
 
-def format_moon_event(event_type, event_time, is_next_day, delta_hours):
+# USNO's twilight-table marker for the sun staying more than 18° below the horizon all day
+CONTINUOUSLY_DARK = "===="
+
+# The twilight columns of a night on which the sun never gets 18° below the horizon
+NO_TWILIGHT = "None"
+
+
+def night_clock(minutes, delta_hours, next_day_label=True):
     """
-    Build the moon-event display string, DST-shifting the time and recomputing
-    the "(next day)" label.
+    A night's time as the local clock shows it.
 
-    is_next_day is computed in the fetch baseline offset. Shifting the clock by
-    delta_hours can carry an event across midnight (e.g. a 23:10 same-day
-    moonrise becomes 00:10), which advances its calendar day relative to the
-    row date; the label must reflect the day it lands on after the shift.
+    minutes counts from the night's first midnight in the fetch baseline
+    offset; delta_hours is the DST correction for the date the time falls on.
+    Times past midnight, including any the correction carries across it, are
+    labelled "(next day)" unless next_day_label is False.
     """
-    if event_time == "N/A":
-        return f"{event_type} N/A"
-
-    total = time_to_minutes(event_time) + delta_hours * 60
-    shifted = f"{(total % (24 * 60)) // 60:02d}:{(total % (24 * 60)) % 60:02d}"
-    day_offset = (1 if is_next_day else 0) + total // (24 * 60)
-
-    if day_offset >= 1:
-        return f"{event_type} {shifted} (next day)"
-    return f"{event_type} {shifted}"
+    total = minutes + delta_hours * 60
+    clock = f"{total % DAY // 60:02d}:{total % 60:02d}"
+    return f"{clock} (next day)" if next_day_label and total >= DAY else clock
 
 
 def minutes_to_duration(minutes):
@@ -57,141 +64,104 @@ def minutes_to_duration(minutes):
     return f"{hours}:{mins:02d}"
 
 
-def calc_dark_sky_length(moon_state, event_info, twilight_end, next_morning_twilight):
+def events_by_date(months):
     """
-    Calculate length of moonless dark sky.
-
-    Args:
-        moon_state: 'Up' or 'Down'
-        event_info: (time, is_next_day, event_type) or None
-        twilight_end: End of astronomical twilight (HH:MM)
-        next_morning_twilight: Start of next morning's twilight (HH:MM)
-
-    Returns:
-        String with duration or "Never Dark"
+    date -> (rises, sets) for each day of the given (year, month, table html)
+    months, as parse_table_events reads them. A month whose html is None is
+    left out, so its dates are unknown.
     """
-    twilight_end_mins = time_to_minutes(twilight_end)
-    next_twi_mins = time_to_minutes(next_morning_twilight)
-
-    if twilight_end_mins is None or next_twi_mins is None:
-        return "N/A"
-
-    # Next morning twilight is on the next day, so add 24 hours
-    next_twi_mins_adjusted = next_twi_mins + 24 * 60
-
-    if moon_state == "Down":
-        # Dark from twilight end until moonrise or next twilight, whichever is earlier
-        if event_info:
-            event_time, is_next_day, event_type = event_info
-            event_mins = time_to_minutes(event_time)
-            if event_mins is not None:
-                if is_next_day:
-                    event_mins_adjusted = event_mins + 24 * 60
-                else:
-                    event_mins_adjusted = event_mins
-                # Dark until moonrise or twilight start, whichever is earlier
-                dark_end = min(event_mins_adjusted, next_twi_mins_adjusted)
-                dark_length = dark_end - twilight_end_mins
-                return minutes_to_duration(dark_length)
-        # No moonrise event, dark until next twilight
-        dark_length = next_twi_mins_adjusted - twilight_end_mins
-        return minutes_to_duration(dark_length)
-
-    else:  # Moon is Up
-        # Need to wait for moonset
-        if event_info:
-            event_time, is_next_day, event_type = event_info
-            event_mins = time_to_minutes(event_time)
-            if event_mins is not None:
-                if is_next_day:
-                    event_mins_adjusted = event_mins + 24 * 60
-                else:
-                    event_mins_adjusted = event_mins
-
-                # Check if moonset is before next morning twilight
-                if event_mins_adjusted < next_twi_mins_adjusted:
-                    dark_length = next_twi_mins_adjusted - event_mins_adjusted
-                    return minutes_to_duration(dark_length)
-                else:
-                    return "Never Dark"
-        return "Never Dark"
+    by_date = {}
+    for year, month, html in months:
+        if html is None:
+            continue
+        for day, events in parse_table_events(html, month).items():
+            if day <= get_days_in_month(year, month):
+                by_date[date(year, month, day)] = events
+    return by_date
 
 
-def get_moon_state_at_time(ref_time, moonrise, moonset, next_day_moonrise, next_day_moonset):
+def night_times(by_date, night_date, column):
     """
-    Determine if moon is up or down at a reference time.
-
-    Returns tuple: (state, event_info) where event_info is (time, is_next_day, event_type)
-    event_type is 'Moonset' if moon is Up, 'Moonrise' if moon is Down
+    The times in one column (0 rises, 1 sets) on night_date and the date after,
+    in order, as minutes from night_date's midnight. An unknown date adds none.
     """
-    ref_mins = time_to_minutes(ref_time)
-    if ref_mins is None:
-        return ("Unknown", None)
+    times = []
+    for offset in (0, 1):
+        events = by_date.get(night_date + timedelta(days=offset))
+        if events:
+            times += [offset * DAY + time_to_minutes(time) for time in events[column] if ":" in time]
+    return sorted(times)
 
-    moonrise_mins = time_to_minutes(moonrise)
-    moonset_mins = time_to_minutes(moonset)
-    next_moonrise_mins = time_to_minutes(next_day_moonrise)
-    next_moonset_mins = time_to_minutes(next_day_moonset)
 
-    # Determine moon state at reference time
-    # Moon is Up if: moonrise occurred before ref_time AND (moonset is after ref_time OR no moonset today)
-    # Moon is Down if: moonset occurred before ref_time AND (moonrise is after ref_time OR no moonrise today)
+class Twilight(NamedTuple):
+    end: int | None  # the evening's end; None when unknown or it never ends
+    start: int | None  # the next morning's start; None when unknown or it never ends
+    never_dark: bool = False  # the sun stays within 18° of the horizon all night
 
-    if moonrise_mins is not None and moonset_mins is not None:
-        if moonrise_mins < moonset_mins:
-            # Normal day: rise then set
-            if moonrise_mins <= ref_mins < moonset_mins:
-                return ("Up", (moonset, False, "Moonset"))
-            elif ref_mins < moonrise_mins:
-                # ref_time before moonrise - moon is down, rises later tonight
-                return ("Down", (moonrise, False, "Moonrise"))
-            else:
-                # ref_time after moonset - moon is down, rises next day
-                if next_moonrise_mins is not None:
-                    return ("Down", (next_day_moonrise, True, "Moonrise"))
-                return ("Down", ("N/A", False, "Moonrise"))
-        else:
-            # Moonset before moonrise (moon was up from previous day)
-            if ref_mins < moonset_mins:
-                return ("Up", (moonset, False, "Moonset"))
-            elif ref_mins >= moonrise_mins:
-                # Moon rose again, find when it sets (next day)
-                if next_moonset_mins is not None:
-                    return ("Up", (next_day_moonset, True, "Moonset"))
-                return ("Up", ("N/A", False, "Moonset"))
-            else:
-                # Between moonset and moonrise - moon is down
-                return ("Down", (moonrise, False, "Moonrise"))
 
-    elif moonrise_mins is not None and moonset_mins is None:
-        # Moonrise but no moonset today - moon sets next day
-        if moonrise_mins <= ref_mins:
-            if next_moonset_mins is not None:
-                return ("Up", (next_day_moonset, True, "Moonset"))
-            return ("Up", ("N/A", False, "Moonset"))
-        else:
-            # Moon rises after ref_time
-            return ("Down", (moonrise, False, "Moonrise"))
+def night_twilight(twilight_by_date, night_date):
+    """
+    The night's astronomical twilight end and the next morning's start.
 
-    elif moonrise_mins is None and moonset_mins is not None:
-        # Moonset but no moonrise today - moon was up from previous day
-        if ref_mins < moonset_mins:
-            return ("Up", (moonset, False, "Moonset"))
-        else:
-            # Moon already set, rises next day
-            if next_moonrise_mins is not None:
-                return ("Down", (next_day_moonrise, True, "Moonrise"))
-            return ("Down", ("N/A", False, "Moonrise"))
+    Twilight ends in the evening or, near midsummer at high latitudes, after
+    midnight, which USNO lists under the next date, so the end is the first
+    one from noon to noon. When there is none the sun never gets 18° below
+    the horizon (USNO marks such a date "////"), and the night is never dark.
+    """
+    today = twilight_by_date.get(night_date)
+    tomorrow = twilight_by_date.get(night_date + timedelta(days=1))
+    if today is None:
+        return Twilight(None, None)
 
-    else:
-        # No moonrise or moonset - moon either up or down all day
-        # Check next day to infer
-        if next_moonrise_mins is not None and next_moonset_mins is not None:
-            if next_moonrise_mins < next_moonset_mins:
-                return ("Down", (next_day_moonrise, True, "Moonrise"))
-            else:
-                return ("Up", (next_day_moonset, True, "Moonset"))
-        return ("Unknown", None)
+    ends = [minutes for minutes in night_times(twilight_by_date, night_date, 1) if NOON <= minutes < NOON + DAY]
+    if not ends:
+        # With tomorrow unknown, the end may still come after midnight
+        if tomorrow is None or any(CONTINUOUSLY_DARK in column for events in (today, tomorrow) for column in events):
+            return Twilight(None, None)
+        return Twilight(None, None, never_dark=True)
+
+    starts = [minutes for minutes in night_times(twilight_by_date, night_date, 0) if ends[0] < minutes < NOON + DAY]
+    return Twilight(ends[0], starts[0] if starts else None)
+
+
+def moon_events(moon_by_date, night_date):
+    """The moonrises and moonsets on night_date and the date after as (minutes, event type), in order."""
+    rises = [(minutes, "Moonrise") for minutes in night_times(moon_by_date, night_date, 0)]
+    sets = [(minutes, "Moonset") for minutes in night_times(moon_by_date, night_date, 1)]
+    return sorted(rises + sets)
+
+
+def moon_at(events, minutes):
+    """
+    The moon's state at a time and its next event: (state, (minutes, event type) or None).
+
+    The next event decides the state: the moon is up before a moonset and
+    down before a moonrise. Past the last known event, the last event decides
+    it instead, and the next event's time is None (unknown).
+    """
+    upcoming = [event for event in events if event[0] > minutes]
+    if upcoming:
+        return ("Up" if upcoming[0][1] == "Moonset" else "Down"), upcoming[0]
+    if events:
+        return ("Up", (None, "Moonset")) if events[-1][1] == "Moonrise" else ("Down", (None, "Moonrise"))
+    return "Unknown", None
+
+
+def moonless_minutes(events, moon_state, start, end):
+    """Minutes from start to end with the moon down, given its state at start."""
+    total = 0
+    down_since = start if moon_state == "Down" else None
+    for minutes, event_type in events:
+        if not start < minutes < end:
+            continue
+        if event_type == "Moonrise" and down_since is not None:
+            total += minutes - down_since
+            down_since = None
+        elif event_type == "Moonset" and down_since is None:
+            down_since = minutes
+    if down_since is not None:
+        total += end - down_since
+    return total
 
 
 class Night(NamedTuple):
@@ -206,6 +176,64 @@ class Night(NamedTuple):
     rating: str
 
 
+def build_night(night_date, sun, moon_by_date, twilight_by_date, tz_name, baseline_offset_hours):
+    """
+    The Night for night_date from its (sunrise, sunset) and the moon and
+    twilight events by date.
+
+    The moon is read at twilight end, or at sunset on a night that is never
+    dark. Dark sky is the moonless time between twilight end and start.
+    """
+    sunrise, sunset = sun
+    twilight = night_twilight(twilight_by_date, night_date)
+    events = moon_events(moon_by_date, night_date)
+
+    ref = time_to_minutes(sunset) if twilight.never_dark else twilight.end
+    moon_state, next_event = ("Unknown", None) if ref is None else moon_at(events, ref)
+
+    dark_minutes = None
+    if twilight.never_dark:
+        dark_length = "Never Dark"
+    elif twilight.end is None or twilight.start is None or moon_state == "Unknown":
+        dark_length = "N/A"
+    else:
+        dark_minutes = moonless_minutes(events, moon_state, twilight.end, twilight.start)
+        dark_length = minutes_to_duration(dark_minutes) if dark_minutes else "Never Dark"
+
+    # DST-correct only the displayed clock times, each by the delta for the date it falls on.
+    deltas = [
+        dst_delta_hours(tz_name, day.year, day.month, day.day, baseline_offset_hours)
+        for day in (night_date, night_date + timedelta(days=1))
+    ]
+
+    def clock(minutes, next_day_label=True):
+        return night_clock(minutes, deltas[minutes // DAY], next_day_label)
+
+    if twilight.never_dark:
+        twilight_end = next_twilight = NO_TWILIGHT
+    else:
+        twilight_end = "N/A" if twilight.end is None else clock(twilight.end)
+        # The next morning's start needs no "(next day)": the column always means that morning.
+        next_twilight = "N/A" if twilight.start is None else clock(twilight.start, next_day_label=False)
+
+    moon_event = ""
+    if next_event:
+        minutes, event_type = next_event
+        moon_event = f"{event_type} {'N/A' if minutes is None else clock(minutes)}"
+
+    return Night(
+        night_date,
+        shift_time(sunrise, deltas[0]),
+        shift_time(sunset, deltas[0]),
+        twilight_end,
+        moon_state,
+        moon_event,
+        next_twilight,
+        dark_length,
+        "★" * (dark_minutes // 60) if dark_minutes else "",
+    )
+
+
 def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baseline_offset_hours, next_year_tables=None):
     """One Night per day of a month, from the three USNO yearly tables.
 
@@ -218,99 +246,27 @@ def night_rows(year, month, sun_html, moon_html, twilight_html, tz_name, baselin
     day bucketing is internally consistent; only the displayed clock times are
     converted to each date's actual local (DST-aware) offset.
     """
-    sun_data = parse_table(sun_html, month)
-    moon_data = parse_table(moon_html, month)
-    twilight_data = parse_table(twilight_html, month)
-
     if month < 12:
-        next_moon_data = parse_table(moon_html, month + 1)
-        next_twilight_data = parse_table(twilight_html, month + 1)
-    elif next_year_tables:
-        next_moon_data = parse_table(next_year_tables[0], 1)
-        next_twilight_data = parse_table(next_year_tables[1], 1)
+        following_month, following_moon, following_twilight = (year, month + 1), moon_html, twilight_html
     else:
-        next_moon_data = next_twilight_data = {}
+        following_month = (year + 1, 1)
+        following_moon, following_twilight = next_year_tables or (None, None)
 
-    num_days = get_days_in_month(year, month)
+    moon_by_date = events_by_date([(year, month, moon_html), (*following_month, following_moon)])
+    twilight_by_date = events_by_date([(year, month, twilight_html), (*following_month, following_twilight)])
+    sun_data = parse_table(sun_html, month)
 
-    nights = []
-    for day in range(1, num_days + 1):
-        sun = sun_data.get(day, ("N/A", "N/A"))
-        moon = moon_data.get(day, ("N/A", "N/A"))
-        twilight = twilight_data.get(day, ("N/A", "N/A"))
-
-        # Get next day's data
-        next_day = day + 1
-        if next_day > num_days:
-            next_moon = next_moon_data.get(1, ("N/A", "N/A"))
-            next_twilight = next_twilight_data.get(1, ("N/A", "N/A"))
-        else:
-            next_moon = moon_data.get(next_day, ("N/A", "N/A"))
-            next_twilight = twilight_data.get(next_day, ("N/A", "N/A"))
-
-        sunrise, sunset = sun
-        moonrise = moon[0]
-        moonset = moon[1]
-        twilight_end = twilight[1]
-        next_morning_twilight = next_twilight[0]
-
-        moon_state, event_info = get_moon_state_at_time(twilight_end, moonrise, moonset, next_moon[0], next_moon[1])
-
-        # Calculate dark sky length (offset-invariant; uses unshifted values)
-        dark_length = calc_dark_sky_length(moon_state, event_info, twilight_end, next_morning_twilight)
-
-        # DST-correct only the displayed clock times. Each value is shifted by
-        # the delta for the date it belongs to: the row's date for sunrise,
-        # sunset and twilight end, the following date for the next morning's twilight and
-        # any "(next day)" moon event.
-        cur_delta = dst_delta_hours(tz_name, year, month, day, baseline_offset_hours)
-        next_date = datetime(year, month, day) + timedelta(days=1)
-        next_delta = dst_delta_hours(
+    return [
+        build_night(
+            date(year, month, day),
+            sun_data.get(day, ("N/A", "N/A")),
+            moon_by_date,
+            twilight_by_date,
             tz_name,
-            next_date.year,
-            next_date.month,
-            next_date.day,
             baseline_offset_hours,
         )
-
-        sunrise = shift_time(sunrise, cur_delta)
-        sunset = shift_time(sunset, cur_delta)
-        twilight_end = shift_time(twilight_end, cur_delta)
-        next_morning_twilight = shift_time(next_morning_twilight, next_delta)
-
-        # Build moon event column
-        moon_event = ""
-        if event_info:
-            event_time, is_next_day, event_type = event_info
-            moon_event = format_moon_event(
-                event_type,
-                event_time,
-                is_next_day,
-                next_delta if is_next_day else cur_delta,
-            )
-
-        # Calculate rating (stars for each hour of dark sky)
-        if dark_length == "Never Dark" or dark_length == "N/A":
-            rating = ""
-        else:
-            hours = int(dark_length.split(":")[0])
-            rating = "★" * hours
-
-        nights.append(
-            Night(
-                date(year, month, day),
-                sunrise,
-                sunset,
-                twilight_end,
-                moon_state,
-                moon_event,
-                next_morning_twilight,
-                dark_length,
-                rating,
-            )
-        )
-
-    return nights
+        for day in range(1, get_days_in_month(year, month) + 1)
+    ]
 
 
 def months_in_range(first_day, last_day):

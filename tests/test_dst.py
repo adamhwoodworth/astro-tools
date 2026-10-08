@@ -10,7 +10,7 @@ logic keeps running on USNO's internally-consistent fixed-offset values.
 import subprocess
 
 from astro_tools.common import dst_delta_hours, shift_time
-from astro_tools.nights import format_moon_event
+from astro_tools.nights import night_clock
 
 
 def run_cli(*args):
@@ -78,27 +78,31 @@ def test_dst_delta_is_zero_during_standard_time():
     assert dst_delta_hours("America/New_York", 2026, 1, 15, -5) == 0
 
 
-def test_moon_event_evening_shift_across_midnight_gains_next_day():
+# night_clock times count from the night's first midnight, so 24:00 and up is the next day.
+NEXT_DAY = 24 * 60
+
+
+def test_night_clock_evening_shift_across_midnight_gains_next_day():
     # 23:10 same-day moonrise shifted +1h -> 00:10, now the next calendar day.
-    assert format_moon_event("Moonrise", "23:10", False, 1) == "Moonrise 00:10 (next day)"
+    assert night_clock(23 * 60 + 10, 1) == "00:10 (next day)"
 
 
-def test_moon_event_already_next_day_keeps_label_without_double_counting():
+def test_night_clock_already_next_day_keeps_label_without_double_counting():
     # 06:02 next-day moonset shifted +1h -> 07:02, still just the next day.
-    assert format_moon_event("Moonset", "06:02", True, 1) == "Moonset 07:02 (next day)"
+    assert night_clock(NEXT_DAY + 6 * 60 + 2, 1) == "07:02 (next day)"
 
 
-def test_moon_event_same_day_evening_no_wrap_has_no_label():
+def test_night_clock_same_day_evening_no_wrap_has_no_label():
     # 21:50 + 1h -> 22:50, still the same evening.
-    assert format_moon_event("Moonrise", "21:50", False, 1) == "Moonrise 22:50"
+    assert night_clock(21 * 60 + 50, 1) == "22:50"
 
 
-def test_moon_event_no_shift_no_label():
-    assert format_moon_event("Moonrise", "18:56", False, 0) == "Moonrise 18:56"
+def test_night_clock_no_shift_no_label():
+    assert night_clock(18 * 60 + 56, 0) == "18:56"
 
 
-def test_moon_event_na_passes_through():
-    assert format_moon_event("Moonrise", "N/A", False, 1) == "Moonrise N/A"
+def test_night_clock_can_leave_out_the_next_day_label():
+    assert night_clock(NEXT_DAY + 2 * 60 + 14, 1, next_day_label=False) == "03:14"
 
 
 def test_july_late_evening_moon_events_labeled_next_day():

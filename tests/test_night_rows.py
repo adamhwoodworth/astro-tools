@@ -1,7 +1,9 @@
 """Unit tests for building nights in astro_tools.nights from saved USNO tables.
 
-The tables in fixtures/ are the 2026 sun, moon, and twilight responses for
-44.81,-66.95; expectations are rows of the verified expected_table_2026_jun.txt.
+The usno_2026_* and usno_2027_* tables in fixtures/ are the sun, moon, and
+twilight responses for 44.81,-66.95; expectations are rows of the verified
+expected_table_2026_jun.txt. The usno_2028_nl_* tables are for 49.67,-54.72,
+far enough north that midsummer nights never get astronomically dark.
 """
 
 from datetime import date
@@ -9,7 +11,18 @@ from pathlib import Path
 
 import pytest
 
-from astro_tools.nights import Night, fetch_night_tables, months_in_range, night_rows, nights_between, years_to_fetch
+from astro_tools.nights import (
+    Night,
+    Twilight,
+    fetch_night_tables,
+    months_in_range,
+    moon_at,
+    moonless_minutes,
+    night_rows,
+    night_twilight,
+    nights_between,
+    years_to_fetch,
+)
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -160,3 +173,153 @@ def test_fetch_night_tables_exits_when_the_years_own_tables_cannot_be_fetched():
         fetch_night_tables(
             date(2026, 6, 1), date(2026, 6, 30), 44.81, -66.95, "America/New_York", fetch=fake_fetch(failing_year=2026)
         )
+
+
+# --- High latitude in summer: 2028 at 49.67,-54.72 (Newfoundland) ----------
+#
+# The usno_2028_nl_* fixtures are fetched in NST (UTC-3:30); summer dates
+# display in NDT, an hour later. From June 3 to July 7 the sun never gets 18°
+# below the horizon, which the twilight table marks "////". Around those dates
+# twilight ends close to midnight: June 1's at 23:51 NST, 00:51 NDT. July 9's
+# row lists two ends: 00:04 (the night of July 8, running past midnight) and
+# 23:53, the second on a continuation row of its own.
+
+
+def nl_nights(month):
+    tables = [(FIXTURES_DIR / f"usno_2028_nl_{name}.html").read_text() for name in ("sun", "moon", "twilight")]
+    return night_rows(2028, month, *tables, "America/St_Johns", -3.5)
+
+
+def test_night_that_never_gets_astronomically_dark():
+    # Sunset 20:14 NST; the moon is down then and rises at 21:52 NST (22:52 NDT).
+    assert nl_nights(6)[7] == Night(
+        date(2028, 6, 8), "05:02", "21:14", "None", "Down", "Moonrise 22:52", "None", "Never Dark", ""
+    )
+
+
+def test_night_whose_twilight_end_falls_past_midnight_shows_next_day():
+    # Twilight ends 23:51 NST (00:51 NDT); the moon sets 01:06 NST, after twilight starts at 00:23.
+    assert nl_nights(6)[0] == Night(
+        date(2028, 6, 1),
+        "05:06",
+        "21:08",
+        "00:51 (next day)",
+        "Up",
+        "Moonset 02:06 (next day)",
+        "01:23",
+        "Never Dark",
+        "",
+    )
+
+
+def test_night_whose_twilight_ends_after_the_date_ends_is_never_dark():
+    # June 2's twilight starts 00:23 but its End cell is blank, and June 3 is "////".
+    night = nl_nights(6)[1]
+    assert (night.twilight_end, night.next_twilight, night.dark_length) == ("None", "None", "Never Dark")
+
+
+def test_moonset_shifted_past_midnight_by_dst_shows_next_day():
+    # May 27: twilight ends 23:18 NST, the moon sets a minute later at 23:19 NST
+    # (00:19 NDT), and twilight starts at 00:54 NST: 1:35 of dark sky.
+    assert nl_nights(5)[26] == Night(
+        date(2028, 5, 27),
+        "05:10",
+        "21:03",
+        "00:18 (next day)",
+        "Up",
+        "Moonset 00:19 (next day)",
+        "01:54",
+        "1:35",
+        "★",
+    )
+
+
+def test_twilight_end_listed_under_the_next_date_belongs_to_the_night_before():
+    # July 8 is "////", but its night's twilight ends at 00:04 NST on July 9 and starts at 00:25.
+    night = nl_nights(7)[7]
+    assert (night.twilight_end, night.next_twilight) == ("01:04 (next day)", "01:25")
+
+
+def test_second_twilight_end_on_a_continuation_row_is_that_nights():
+    # July 9's own night ends at 23:53 NST (00:53 NDT) and starts at 00:36 NST on July 10.
+    night = nl_nights(7)[8]
+    assert (night.twilight_end, night.next_twilight) == ("00:53 (next day)", "01:36")
+
+
+def test_continuation_row_does_not_erase_the_same_day_in_other_months():
+    # January 8 and 9 (no DST): twilight ends 18:24 and 18:25, and starts 06:07 on the 9th and 10th.
+    january = nl_nights(1)
+    assert (january[7].next_twilight, january[7].dark_length) == ("06:07", "0:17")
+    assert (january[8].twilight_end, january[8].moon_state) == ("18:25", "Up")
+
+
+# --- night_twilight ------------------------------------------------------------
+
+NIGHT = date(2028, 6, 1)
+NEXT = date(2028, 6, 2)
+
+
+def test_twilight_end_after_midnight_is_found_on_the_next_date():
+    by_date = {NIGHT: (["00:30"], ["00:10"]), NEXT: (["00:40"], ["00:05"])}
+    assert night_twilight(by_date, NIGHT) == Twilight(24 * 60 + 5, 24 * 60 + 40)
+
+
+def test_twilight_start_before_midnight_is_found_on_the_nights_date():
+    by_date = {NIGHT: (["00:05", "23:58"], ["23:40"]), NEXT: ([], ["23:45"])}
+    assert night_twilight(by_date, NIGHT) == Twilight(23 * 60 + 40, 23 * 60 + 58)
+
+
+def test_twilight_with_no_end_is_never_dark():
+    by_date = {NIGHT: (["////"], ["////"]), NEXT: (["////"], ["////"])}
+    assert night_twilight(by_date, NIGHT) == Twilight(None, None, never_dark=True)
+
+
+def test_twilight_end_is_unknown_without_the_next_date():
+    # The end could still come after midnight.
+    assert night_twilight({NIGHT: (["00:30"], [])}, NIGHT) == Twilight(None, None)
+
+
+def test_twilight_start_is_unknown_without_the_next_date():
+    assert night_twilight({NIGHT: (["05:00"], ["18:00"])}, NIGHT) == Twilight(18 * 60, None)
+
+
+def test_twilight_when_continuously_dark_is_unknown_not_never_dark():
+    by_date = {NIGHT: (["===="], ["===="]), NEXT: (["===="], ["===="])}
+    assert night_twilight(by_date, NIGHT) == Twilight(None, None)
+
+
+# --- moon_at / moonless_minutes -----------------------------------------------
+
+EVENTS = [(300, "Moonset"), (1300, "Moonrise"), (1800, "Moonset")]
+
+
+def test_moon_before_a_moonset_is_up():
+    assert moon_at(EVENTS, 100) == ("Up", (300, "Moonset"))
+
+
+def test_moon_before_a_moonrise_is_down():
+    assert moon_at(EVENTS, 1000) == ("Down", (1300, "Moonrise"))
+
+
+def test_moon_past_the_last_event_takes_its_state_with_the_next_event_unknown():
+    assert moon_at(EVENTS[:2], 1400) == ("Up", (None, "Moonset"))
+
+
+def test_moon_without_events_is_unknown():
+    assert moon_at([], 1400) == ("Unknown", None)
+
+
+def test_moonless_until_moonrise():
+    assert moonless_minutes(EVENTS, "Down", 1000, 1500) == 300
+
+
+def test_moonless_from_moonset():
+    assert moonless_minutes(EVENTS, "Up", 1500, 2000) == 200
+
+
+def test_moonless_between_moonset_and_next_moonrise():
+    assert moonless_minutes(EVENTS, "Up", 100, 1400) == 1000
+
+
+def test_moon_up_all_night_is_no_moonless_time():
+    assert moonless_minutes(EVENTS, "Up", 1350, 1700) == 0
