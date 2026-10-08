@@ -304,6 +304,10 @@ def parse_args():
             sys.exit(1)
         month = MONTH_ABBREVS[month_str]
 
+    if len(remaining) > 2:
+        print(f"Error: unexpected arguments after the month: {' '.join(remaining[2:])}", file=sys.stderr)
+        sys.exit(1)
+
     if year is None:
         year = datetime.now().year
 
@@ -424,16 +428,17 @@ def month_arg(value):
     return MONTH_ABBREVS[value.lower()]
 
 
-def date_range_parser(description):
+def date_range_parser(description, no_date="today"):
     """
     Argument parser for tools taking `<lat,long> [year] [month] [day] [+N]`.
 
-    Callers add their own options, then parse with parse_date_range_args.
+    no_date describes what the tool shows when given no date. Callers add
+    their own options, then parse with parse_date_range_args.
     """
     parser = argparse.ArgumentParser(
         usage="%(prog)s <lat,long> [year] [month] [day] [+N] [options]",
         description=f"{description} "
-        "With no date, shows today; a year, year and month, or year, month and day narrow the range. "
+        f"With no date, shows {no_date}; a year, year and month, or year, month and day narrow the range. "
         "+N (e.g. +7) shows N days counting from the first of those dates.",
     )
     parser.add_argument("year", nargs="?", type=year_arg, help="4-digit year")

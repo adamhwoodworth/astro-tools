@@ -15,6 +15,7 @@ from astro_tools.common import (
     format_time,
     format_utc_offset,
     get_days_in_month,
+    parse_args,
     parse_latlong,
     parse_table,
     parse_table_events,
@@ -162,6 +163,21 @@ def test_parse_table_is_not_overwritten_by_a_continuation_row():
 def test_parse_table_shows_markers_and_blanks_as_na():
     assert parse_table(TWILIGHT_ROWS, 6)[2] == ("00:23", "N/A")
     assert parse_table(TWILIGHT_ROWS, 7)[2] == ("N/A", "N/A")
+
+
+# --- parse_args ----------------------------------------------------------------
+
+
+def test_parse_args_reads_year_and_month(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["fullmoon.py", "44.85,-66.98", "2026", "jun"])
+    assert parse_args() == (44.85, -66.98, 2026, 6, False, False)
+
+
+def test_parse_args_rejects_arguments_after_the_month(monkeypatch, capsys):
+    monkeypatch.setattr("sys.argv", ["fullmoon.py", "44.85,-66.98", "2028", "jun", "8", "+12"])
+    with pytest.raises(SystemExit):
+        parse_args()
+    assert "8 +12" in capsys.readouterr().err
 
 
 # --- standard_offset_hours / usno_tz_params -----------------------------------

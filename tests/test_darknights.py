@@ -1,8 +1,11 @@
 import shutil
 import subprocess
+from datetime import date
 from pathlib import Path
 
 import pytest
+
+from darknights import date_range, parse_cli
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 CACHE_DIR = Path("cache")
@@ -123,3 +126,37 @@ def test_no_cache_bypasses_existing_cache():
 
     expected = (FIXTURES_DIR / "expected_table_2026_jun.txt").read_text().rstrip("\n")
     assert extract_table(result.stdout) == expected
+
+
+# --- Date arguments ------------------------------------------------------------
+
+TODAY = date(2026, 10, 7)
+
+
+def test_no_date_shows_the_whole_current_year():
+    assert date_range(parse_cli([LATLONG]), TODAY) == (date(2026, 1, 1), date(2026, 12, 31))
+
+
+def test_days_without_a_date_start_today():
+    assert date_range(parse_cli([LATLONG, "+3"]), TODAY) == (TODAY, date(2026, 10, 9))
+
+
+def test_day_and_days_narrow_the_range():
+    args = parse_cli([LATLONG, "2028", "jun", "8", "+12", "--no-cache"])
+    assert date_range(args, TODAY) == (date(2028, 6, 8), date(2028, 6, 19))
+    assert args.no_cache
+
+
+def test_day_range_shows_only_those_nights():
+    result = run_darknights(LATLONG, "2026", "jun", "29", "+3", "--no-color")
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+
+    dates = [line[:10] for line in result.stdout.splitlines() if line[:3] in ("Mon", "Tue", "Wed", "Thu")]
+    assert dates == ["Mon Jun 29", "Tue Jun 30", "Wed Jul  1"]
+    assert "June 2026" in result.stdout and "July 2026" in result.stdout
+
+
+def test_day_that_does_not_exist_is_an_error():
+    result = run_darknights(LATLONG, "2026", "feb", "30", "--no-color")
+    assert result.returncode == 1
+    assert "Error" in result.stderr

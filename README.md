@@ -24,7 +24,7 @@ Timezone is automatically determined from the provided coordinates.
 ### Usage
 
 ```bash
-uv run darknights.py <lat,long> [year] [month] [--no-color] [--no-cache]
+uv run darknights.py <lat,long> [year] [month] [day] [+N] [--no-color] [--no-cache]
 ```
 
 The `lat,long` argument accepts coordinates as copied from Google Maps:
@@ -46,9 +46,20 @@ uv run darknights.py 44.85,-66.98 2026
 
 # Specific year and month
 uv run darknights.py '44.85, -66.98' 2026 jun
+
+# A single night
+uv run darknights.py 44.85,-66.98 2026 jun 8
+
+# 12 nights starting June 8
+uv run darknights.py 44.85,-66.98 2026 jun 8 +12
+
+# The next 7 nights, starting tonight
+uv run darknights.py 44.85,-66.98 +7
 ```
 
 Valid months: `jan`, `feb`, `mar`, `apr`, `may`, `jun`, `jul`, `aug`, `sep`, `oct`, `nov`, `dec`
+
+`+N` works as in `tides.py`: N nights counting from the first date of the range, that date included. Unlike `tides.py`, no date at all means the whole current year rather than today.
 
 Options:
 - `--no-color`: Disable ANSI color codes in output
@@ -115,7 +126,7 @@ Uses the same US Naval Observatory data, timezone auto-detection, and `cache/` d
 uv run fullmoon.py <lat,long> [year] [month] [--no-color] [--no-cache]
 ```
 
-The argument syntax is identical to `darknights.py`:
+The coordinates, year, and month work as in `darknights.py` (there is no day or `+N`):
 
 ```bash
 # Current year, all months
