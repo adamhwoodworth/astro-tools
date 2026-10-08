@@ -120,6 +120,48 @@ def fetch_yearly_table(task, year, lat, lon, tz, tz_sign, no_cache=False):
         return None
 
 
+def parse_table_events(html_text, month):
+    """
+    Every time the yearly table lists for each day of a month.
+
+    Returns a dictionary mapping day -> (rises, sets): lists of the day's rise
+    (or twilight begin) and set (or twilight end) times as HH:MM, in table
+    order. A blank cell means no such event that day and adds nothing. USNO's
+    markers for a body continuously above or below the horizon or twilight
+    limit (e.g. "////", "====") are kept as is.
+
+    A day with two of the same event, such as twilight that ends just after
+    midnight and again just before the next one, gets a continuation row that
+    repeats the day number and holds only the extra time; its times are added
+    to the day's rather than replacing them.
+    """
+    results = {}
+
+    # Find all data rows - they start with a 2-digit day number
+    pattern = r"^(\d{2})\s{2}(.+)$"
+
+    # Fixed-width columns: each month takes 11 chars (4 rise + 1 space + 4 set + 2 separator).
+    # Trailing blank cells are stripped, so a short line just means no events.
+    month_start = (month - 1) * 11
+
+    for line in html_text.split("\n"):
+        match = re.match(pattern, line.strip())
+        if not match:
+            continue
+
+        rises, sets = results.setdefault(int(match.group(1)), ([], []))
+        data = match.group(2)
+        for cell, times in (
+            (data[month_start : month_start + 4], rises),
+            (data[month_start + 5 : month_start + 9], sets),
+        ):
+            cell = cell.strip()
+            if cell:
+                times.append(format_time(cell) if cell.isdigit() else cell)
+
+    return results
+
+
 def parse_table(html_text, month):
     """
     Parse the yearly table and extract data for a specific month.
@@ -129,36 +171,17 @@ def parse_table(html_text, month):
         month: Month number (1-12)
 
     Returns:
-        Dictionary mapping day -> (rise_time, set_time) or None for missing data
+        Dictionary mapping day -> (rise_time, set_time): each day's first rise
+        and set time, or "N/A" when there is none
     """
-    results = {}
 
-    # Find all data rows - they start with a 2-digit day number
-    pattern = r"^(\d{2})\s{2}(.+)$"
+    def first_time(times):
+        return next((time for time in times if ":" in time), "N/A")
 
-    for line in html_text.split("\n"):
-        line = line.strip()
-        match = re.match(pattern, line)
-        if not match:
-            continue
-
-        day = int(match.group(1))
-        data = match.group(2)
-
-        # Fixed-width columns: each month takes 11 chars (4 rise + 1 space + 4 set + 2 separator)
-        # Exception: last month (December) has no trailing separator
-        month_start = (month - 1) * 11
-
-        if month_start + 9 <= len(data):
-            rise = data[month_start : month_start + 4].strip()
-            set_time = data[month_start + 5 : month_start + 9].strip()
-
-            rise = format_time(rise)
-            set_time = format_time(set_time)
-
-            results[day] = (rise, set_time)
-
-    return results
+    return {
+        day: (first_time(rises), first_time(sets))
+        for day, (rises, sets) in parse_table_events(html_text, month).items()
+    }
 
 
 def format_time(time_str):

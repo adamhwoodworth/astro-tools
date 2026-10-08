@@ -17,6 +17,7 @@ from astro_tools.common import (
     get_days_in_month,
     parse_latlong,
     parse_table,
+    parse_table_events,
     print_table,
     resolve_date_range,
     standard_offset_hours,
@@ -120,6 +121,47 @@ def test_parse_table_reads_second_month_columns():
 
 def test_parse_table_ignores_non_data_lines():
     assert parse_table("Sunrise and Sunset Table", 1) == {}
+
+
+# Twilight rows from the 2028 table for 49.67,-54.72 (fixtures/usno_2028_nl_twilight.html),
+# trimmed to January through July. On July 9 twilight ends twice, at 00:04 (the
+# night of the 8th, running past midnight) and again at 23:53, so USNO adds a
+# second "09" row holding just the 23:53. June 2's twilight ends after
+# midnight, so its End is blank; July 2 is never dark, which USNO marks "////".
+TWILIGHT_ROWS = """\
+02  0608 1818  0550 1856  0502 1941  0349 2037  0224 2150  0023       //// ////
+09  0607 1825  0541 1906  0447 1953  0330 2052  0203 2211  //// ////  0025 0004
+09                                                                         2353
+"""
+
+
+def test_parse_table_events_adds_a_continuation_rows_times_to_its_day():
+    assert parse_table_events(TWILIGHT_ROWS, 7)[9] == (["00:25"], ["00:04", "23:53"])
+
+
+def test_parse_table_events_continuation_row_leaves_other_months_intact():
+    assert parse_table_events(TWILIGHT_ROWS, 1)[9] == (["06:07"], ["18:25"])
+
+
+def test_parse_table_events_blank_cell_has_no_event():
+    assert parse_table_events(TWILIGHT_ROWS, 6)[2] == (["00:23"], [])
+
+
+def test_parse_table_events_keeps_continuously_above_marker():
+    assert parse_table_events(TWILIGHT_ROWS, 7)[2] == (["////"], ["////"])
+
+
+def test_parse_table_events_blank_cells_past_the_end_of_the_line_have_no_event():
+    assert parse_table_events("01  0705 1600", 2) == {1: ([], [])}
+
+
+def test_parse_table_is_not_overwritten_by_a_continuation_row():
+    assert parse_table(TWILIGHT_ROWS, 1)[9] == ("06:07", "18:25")
+
+
+def test_parse_table_shows_markers_and_blanks_as_na():
+    assert parse_table(TWILIGHT_ROWS, 6)[2] == ("00:23", "N/A")
+    assert parse_table(TWILIGHT_ROWS, 7)[2] == ("N/A", "N/A")
 
 
 # --- standard_offset_hours / usno_tz_params -----------------------------------
